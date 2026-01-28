@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "compat-api/css": "off",
+    "axe/aria": "off",
+    "axe/forms": "off"
+  }
+}
