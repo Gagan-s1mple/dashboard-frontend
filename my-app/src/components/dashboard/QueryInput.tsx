@@ -1,3 +1,4 @@
+
 // src/components/dashboard/QueryInput.tsx
 
 "use client";
@@ -37,7 +38,7 @@ export function QueryInput() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask for a sales dashboard (e.g., 'Plot a sales Dashboard')"
+          placeholder="Ask for a dashboard based on your uploaded data (e.g., 'Plot a sales Dashboard')"
           className="flex-1 text-base h-12 px-4 border-2 border-slate-200 focus:border-indigo-500"
           disabled={loading}
         />
@@ -54,7 +55,7 @@ export function QueryInput() {
           ) : (
             <>
               <Send className="w-4 h-4 mr-2" />
-              Send
+              Generate Dashboard
             </>
           )}
         </Button>

@@ -26,7 +26,7 @@ export interface DashboardBackendResponse {
 export class DashboardAPI {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.117:8001' || `${url.backendUrl}`) {
+  constructor(baseUrl: string = `${url.backendUrl}`) {
     this.baseUrl = baseUrl;
     console.log('🔧 DashboardAPI initialized with baseUrl:', this.baseUrl);
   }

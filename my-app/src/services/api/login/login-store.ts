@@ -7,15 +7,28 @@ interface LoginPayload {
   password: string;
 }
 
+interface LoginResponse {
+  access_token: string;
+  message: string;
+  email: string;
+  
+}
+
 interface LoginState {
   loading: boolean;
   error: string | null;
-  login: (payload: LoginPayload) => Promise<any>;
+  token: string | null;
+  email: string | null;
+  login: (payload: LoginPayload) => Promise<LoginResponse>;
+  logout: () => void;
+  getAuthHeader: () => { Authorization: string } | null;
 }
 
-export const useLoginStore = create<LoginState>((set) => ({
+export const useLoginStore = create<LoginState>((set, get) => ({
   loading: false,
   error: null,
+  token: localStorage.getItem("auth_token") || null,
+  email: localStorage.getItem("user_email") || null,
 
   login: async (payload) => {
     try {
@@ -36,15 +49,22 @@ export const useLoginStore = create<LoginState>((set) => ({
         throw new Error(err || "Login failed");
       }
 
-      // ✅ THIS WAS MISSING
-      const data = await response.json();
+      const data: LoginResponse = await response.json();
 
-      // ✅ store email for dashboard upload
+      // ✅ Store token and email for authentication
+      localStorage.setItem("auth_token", data.access_token);
       localStorage.setItem("user_email", data.email || payload.username);
+      
+    
+    
 
       console.log("Login response :::", data);
 
-      set({ loading: false });
+      set({ 
+        loading: false, 
+        token: data.access_token,
+        email: data.email || payload.username 
+      });
 
       return data;
     } catch (err: any) {
@@ -52,4 +72,25 @@ export const useLoginStore = create<LoginState>((set) => ({
       throw err;
     }
   },
+
+  logout: () => {
+    // Clear all auth-related localStorage items
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user_email");
+    localStorage.removeItem("token_type");
+    
+    set({ 
+      token: null, 
+      email: null,
+      error: null 
+    });
+  },
+
+  getAuthHeader: () => {
+    const token = get().token || localStorage.getItem("auth_token");
+    if (token) {
+      return { Authorization: `Bearer ${token}` };
+    }
+    return null;
+  }
 }));
