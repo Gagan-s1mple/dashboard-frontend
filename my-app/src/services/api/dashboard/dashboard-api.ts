@@ -28,63 +28,76 @@ export class DashboardAPI {
 
   constructor(baseUrl: string = `${url.backendUrl}`) {
     this.baseUrl = baseUrl;
-    console.log('🔧 DashboardAPI initialized with baseUrl:', this.baseUrl);
+    console.log("🔧 DashboardAPI initialized with baseUrl:", this.baseUrl);
   }
 
   /**
    * Fetch dashboard data from backend
    */
-  async fetchDashboardData(message: string): Promise<DashboardBackendResponse> {
-    console.group('📡 API Call: fetchDashboardData');
-    console.log('📤 Request Details:');
-    console.log('  - URL:', `${this.baseUrl}/dashboard`);
-    console.log('  - Method:', 'POST');
-    console.log('  - Message:', message);
-    console.log('  - Timestamp:', new Date().toISOString());
-    
+  async fetchDashboardData(message: string,file_name:string): Promise<DashboardBackendResponse> {
+    console.group("📡 API Call: fetchDashboardData");
+    console.log("📤 Request Details:");
+    console.log("  - URL:", `${this.baseUrl}/llm/dashboard`);
+    console.log("  - Method:", "POST");
+    console.log("  - Message:", message);
+    console.log("  - Timestamp:", new Date().toISOString());
+
     try {
-      const requestBody = { message };
-      console.log('  - Request Body:', JSON.stringify(requestBody, null, 2));
-      
+      const requestBody = { message,file_name };
+      console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));
+
       const startTime = performance.now();
-      
-      const response = await fetch(`${this.baseUrl}/dashboard`, {
-        method: 'POST',
+      const getAuthToken = (): string | null => {
+        return localStorage.getItem("auth_token");
+      };
+
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error("Authentication required. Please login first.");
+      }
+
+      const response = await fetch(`${this.baseUrl}/llm/dashboard`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(requestBody),
       });
 
       const endTime = performance.now();
       const duration = (endTime - startTime).toFixed(2);
-      
-      console.log('📥 Response Received:');
-      console.log('  - Status:', response.status);
-      console.log('  - Status Text:', response.statusText);
-      console.log('  - Duration:', `${duration}ms`);
-      console.log('  - OK:', response.ok);
+
+      console.log("📥 Response Received:");
+      console.log("  - Status:", response.status);
+      console.log("  - Status Text:", response.statusText);
+      console.log("  - Duration:", `${duration}ms`);
+      console.log("  - OK:", response.ok);
 
       if (!response.ok) {
-        console.error('❌ HTTP Error:', {
+        console.error("❌ HTTP Error:", {
           status: response.status,
           statusText: response.statusText,
-          url: response.url
+          url: response.url,
         });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const responseData = await response.json();
-      
-      console.log('✅ Raw Response Data:', responseData);
-      console.log('  - Type:', typeof responseData);
-      console.log('  - Is Array:', Array.isArray(responseData));
-      console.log('  - Length:', Array.isArray(responseData) ? responseData.length : 'N/A');
-      
+
+      console.log("✅ Raw Response Data:", responseData);
+      console.log("  - Type:", typeof responseData);
+      console.log("  - Is Array:", Array.isArray(responseData));
+      console.log(
+        "  - Length:",
+        Array.isArray(responseData) ? responseData.length : "N/A",
+      );
+
       // Handle different response formats from backend
       let kpis: KPI[] = [];
       let charts: ChartOption[] = [];
-      
+
       if (Array.isArray(responseData)) {
         // Backend returns array of KPIs (no charts yet)
         // We'll accept this and frontend will handle empty charts
@@ -95,44 +108,52 @@ export class DashboardAPI {
         // Backend returns structured object with both kpis and charts
         kpis = responseData.kpis;
         charts = responseData.charts;
-        console.log(`📊 Backend returned ${kpis.length} KPIs, ${charts.length} charts`);
+        console.log(
+          `📊 Backend returned ${kpis.length} KPIs, ${charts.length} charts`,
+        );
       } else {
-        console.error('❌ Unexpected response format:', responseData);
-        throw new Error('Invalid response format');
+        console.error("❌ Unexpected response format:", responseData);
+        throw new Error("Invalid response format");
       }
-      
+
       // Log detailed KPI info
-      console.log('📊 KPIs Details:');
+      console.log("📊 KPIs Details:");
       kpis.forEach((kpi: KPI, index: number) => {
         console.log(`  - KPI ${index + 1}:`, {
           title: kpi.title,
           value: kpi.value,
-          description: kpi.description
+          description: kpi.description,
         });
       });
-      
+
       // Log detailed chart info
-      console.log('📈 Charts Details:');
+      console.log("📈 Charts Details:");
       charts.forEach((chart: ChartOption, index: number) => {
         console.log(`  - Chart ${index + 1}:`, {
           title: chart.title?.text,
           type: chart.series?.[0]?.type,
-          dataPoints: chart.series?.[0]?.data?.length || 0
+          dataPoints: chart.series?.[0]?.data?.length || 0,
         });
       });
-      
+
       console.groupEnd();
-      
+
       // Return EXACTLY what backend provides (or transformed to our interface)
       return {
         kpis,
-        charts
+        charts,
       };
     } catch (error) {
-      console.error('❌ API Call Failed:');
-      console.error('  - Error Type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('  - Error Message:', error instanceof Error ? error.message : String(error));
-      console.error('  - Stack:', error instanceof Error ? error.stack : 'N/A');
+      console.error("❌ API Call Failed:");
+      console.error(
+        "  - Error Type:",
+        error instanceof Error ? error.constructor.name : typeof error,
+      );
+      console.error(
+        "  - Error Message:",
+        error instanceof Error ? error.message : String(error),
+      );
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
       console.groupEnd();
       throw error;
     }
@@ -140,4 +161,4 @@ export class DashboardAPI {
 }
 
 export const dashboardAPI = new DashboardAPI();
-console.log('✅ Dashboard API instance created');
+console.log("✅ Dashboard API instance created");

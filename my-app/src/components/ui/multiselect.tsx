@@ -10,7 +10,7 @@ import {
   CommandGroup,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from "./command"
 import { Cross2Icon } from "@radix-ui/react-icons"
 import { Trash2 } from "lucide-react"
 

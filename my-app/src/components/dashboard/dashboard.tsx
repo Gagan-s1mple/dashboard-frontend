@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -35,12 +36,18 @@ import {
   LogOut,
   Trash2,
   RefreshCw,
+  Plus,
+  MoreVertical,
+  Send,
+  Check,
+  Database,
 } from "lucide-react";
 
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
-import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-store";
+// CHANGED THIS IMPORT ONLY:
+import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
 
 import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
 import { useDeleteFileStore } from "@/src/services/api/dashboard/delete-store";
@@ -60,7 +67,7 @@ const SequentialLoader = () => {
   React.useEffect(() => {
     const interval = setInterval(() => {
       setStep((prev) => (prev + 1) % messages.length);
-    }, 5000);
+    }, 20000);
     return () => clearInterval(interval);
   }, []);
 
@@ -77,13 +84,8 @@ interface UploadedFile {
   size: number;
   type: string;
   uploadedAt: Date;
-  isExisting?: boolean; // Flag to identify files loaded from backend
+  isExisting?: boolean;
 }
-
-// Helper function to get auth token
-// const getAuthToken = (): string | null => {
-//   return localStorage.getItem("auth_token");
-// };
 
 export function SalesDashboard() {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -94,6 +96,12 @@ export function SalesDashboard() {
   const [userEmail, setUserEmail] = useState<string>("");
   const [loadingFiles, setLoadingFiles] = useState(false);
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [showFileDialog, setShowFileDialog] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
+  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const {
     loading,
@@ -101,6 +109,9 @@ export function SalesDashboard() {
     dashboardData,
     fetchDashboardData,
     resetDashboard,
+    polling,
+    currentTaskId,
+    stopPolling,
   } = useDashboardStore();
   const { uploading, uploadAndGenerate } = useUploadStore();
   const { deleteFile, loading: deleteLoading } = useDeleteFileStore();
@@ -212,6 +223,8 @@ export function SalesDashboard() {
   console.log("📊 Dashboard State:", {
     loading,
     hasData,
+    polling,
+    currentTaskId,
     kpisCount: dashboardData.kpis?.length || 0,
     chartsCount: dashboardData.charts?.length || 0,
     dashboardData: dashboardData,
@@ -712,6 +725,11 @@ export function SalesDashboard() {
       }));
 
       setUploadedFiles((prev) => [...prev, ...newFiles]);
+      
+      // Set the recently uploaded file name for display
+      const uploadedFileName = files[0].name;
+      setRecentlyUploadedFile(uploadedFileName);
+      setUploadSuccess(true);
 
       toast.success(
         `Uploaded ${files.length} file(s) successfully! Data is ready for analysis.`,
@@ -720,6 +738,15 @@ export function SalesDashboard() {
           position: "top-center",
         },
       );
+      
+      // Wait for 3 seconds, then close upload modal and show file selection dialog
+      setTimeout(() => {
+        setShowFileUploadModal(false);
+        setRecentlyUploadedFile(null);
+        setUploadSuccess(false);
+        setShowFileDialog(true);
+      }, 3000);
+      
     } catch (error) {
       console.log("error",error)
       toast.error("Upload failed. Please try again.", {
@@ -734,7 +761,7 @@ export function SalesDashboard() {
   };
 
   // Delete file from backend
-  const handleDeleteFile = async (filename: string, index: number) => {
+  const handleDeleteFile = async (filename: string) => {
     // Use toast for confirmation instead of alert
     toast.custom((t) => (
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg border p-4">
@@ -750,7 +777,7 @@ export function SalesDashboard() {
             </h3>
             <div className="mt-1 text-sm text-slate-600">
               Are you sure you want to delete{" "}
-              <span className="font-medium text-slate-900">&quot;{filename}&ldquo;</span>?
+              <span className="font-medium text-slate-900">"{filename}"</span>?
               This action cannot be undone.
             </div>
             <div className="mt-3 flex justify-end space-x-2">
@@ -765,7 +792,7 @@ export function SalesDashboard() {
               <button
                 onClick={async () => {
                   toast.dismiss(t);
-                  await performDelete(filename, index);
+                  await performDelete(filename);
                 }}
                 className="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
               >
@@ -779,12 +806,13 @@ export function SalesDashboard() {
   };
 
   // Perform the actual delete operation
-  const performDelete = async (filename: string, index: number) => {
+  const performDelete = async (filename: string) => {
     const originalFiles = [...uploadedFiles]; // Keep backup in case deletion fails
 
     try {
       // Optimistically remove from UI
-      setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+      setUploadedFiles((prev) => prev.filter((file) => file.name !== filename));
+      setSelectedFiles((prev) => prev.filter((file) => file !== filename));
 
       // Call the deleteFile function from store
       await deleteFile(filename);
@@ -826,14 +854,77 @@ export function SalesDashboard() {
     console.log("🔄 Starting new query, resetting dashboard");
     resetDashboard();
     setUploadedFiles([]);
+    setSelectedFiles([]);
+    setQuery("");
+  };
+
+  // Get file names for API call
+  const getFileNames = () => {
+    if (selectedFiles.length === 0) {
+      toast.warning("Please select at least one file to analyze", {
+        duration: 3000,
+        position: "top-center",
+      });
+      return "";
+    }
+    return selectedFiles.join(",");
+  };
+
+  const handleSendQuery = async () => {
+    if (!query.trim()) {
+      toast.error("Please enter a query", {
+        duration: 3000,
+        position: "top-center",
+      });
+      return;
+    }
+
+    const fileNames = getFileNames();
+    if (!fileNames) return;
+
+    // Log the parameters being sent
+    console.log("📤 Sending query to backend:");
+    console.log("  - Query:", query.trim());
+    console.log("  - File Names:", fileNames);
+    console.log("  - Selected Files Array:", selectedFiles);
+
+    await fetchDashboardData(query.trim(), fileNames);
+  };
+
+  const toggleFileSelection = (fileName: string) => {
+    setSelectedFiles(prev => {
+      if (prev.includes(fileName)) {
+        return prev.filter(f => f !== fileName);
+      } else {
+        return [...prev, fileName];
+      }
+    });
   };
 
   // Show loading state
-  if (loading) {
+  if (loading || polling) {
     return (
       <div className="w-full h-screen bg-gray-50 p-6 flex flex-col items-center justify-center">
         <Toaster />
         <SequentialLoader />
+        {polling && currentTaskId && (
+          <div className="mt-4 text-center">
+            <p className="text-sm text-slate-500">
+              Generating dashboard... Task ID: {currentTaskId.slice(0, 8)}...
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Polling every 20 seconds for status
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={stopPolling}
+              className="mt-2"
+            >
+              Cancel Generation
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -882,61 +973,75 @@ export function SalesDashboard() {
           {/* Query Input with Upload Button */}
           <div className="w-full max-w-5xl mx-auto mb-6 space-y-3">
             {/* Query Input Form */}
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const query = (e.target as any).query?.value;
-                if (!query?.trim() || loading) return;
-                await fetchDashboardData(query.trim());
-              }}
-              className="flex gap-2"
-            >
-              <input
-                type="text"
-                name="query"
-                placeholder="Ask for a dashboard based on your uploaded data (e.g., 'Plot a sales Dashboard')"
-                className="flex-1 text-base h-12 px-4 border-2 border-slate-200 focus:border-indigo-500 rounded-md"
-                disabled={loading}
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  variant="outline"
-                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 h-12 px-4"
-                >
-                  {uploading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Data
-                    </>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <div className="bg-white border-2 border-slate-200 focus-within:border-indigo-500 rounded-md overflow-hidden">
+                  <textarea
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Ask for a dashboard based on your uploaded data (e.g., 'Plot a sales Dashboard')"
+                    className="w-full text-base h-32 px-4 py-3 outline-none resize-none"
+                    disabled={loading}
+                  />
+                  
+                  {/* Selected files display inside chat bubble */}
+                  {selectedFiles.length > 0 && (
+                    <div className="px-4 py-2 border-t border-slate-100 bg-slate-50">
+                      <div className="flex items-center gap-2 mb-1">
+                        <File className="w-3 h-3 text-slate-500" />
+                        <span className="text-xs text-slate-500">Selected files:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedFiles.map((file) => (
+                          <div
+                            key={file}
+                            className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-200"
+                          >
+                            <File className="w-3 h-3 text-slate-500" />
+                            <span className="text-xs text-slate-700 truncate max-w-[80px]">
+                              {file}
+                            </span>
+                            <button
+                              onClick={() => toggleFileSelection(file)}
+                              className="text-slate-400 hover:text-red-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-indigo-600 hover:bg-indigo-700 h-12 px-6"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Generate Dashboard
-                    </>
-                  )}
-                </Button>
+                  
+                  <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between">
+                    {/* Plus button for file selection */}
+                    <button
+                      onClick={() => setShowFileDialog(true)}
+                      className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors flex items-center gap-2"
+                      title="Select files"
+                    >
+                      <Plus className="w-5 h-5" />
+                      <span className="text-sm">Select Files</span>
+                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Send button inside chat bubble */}
+                      <button
+                        onClick={handleSendQuery}
+                        disabled={!query.trim() || selectedFiles.length === 0 || loading}
+                        className={`p-2 rounded-full transition-colors ${
+                          query.trim() && selectedFiles.length > 0 && !loading
+                            ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </form>
+            </div>
 
             {/* Quick Query Buttons */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -953,136 +1058,19 @@ export function SalesDashboard() {
                   key={index}
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchDashboardData(q)}
+                  onClick={() => {
+                    setQuery(q);
+                    const fileNames = getFileNames();
+                    if (fileNames) {
+                      fetchDashboardData(q, fileNames);
+                    }
+                  }}
                   disabled={loading}
                   className="text-sm border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
                 >
                   {q}
                 </Button>
               ))}
-            </div>
-
-            {/* Uploaded Files Section - Only shown when files are uploaded */}
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-slate-700">
-                    Available Files ({uploadedFiles.length})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handleRefreshFiles}
-                    disabled={loadingFiles}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1"
-                  >
-                    {loadingFiles ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600"></div>
-                    ) : (
-                      <RefreshCw className="w-3 h-3" />
-                    )}
-                    Refresh
-                  </Button>
-                  <Button
-                    onClick={() => setUploadedFiles([])}
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Clear All
-                  </Button>
-                </div>
-              </div>
-
-              {loadingFiles ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                  <span className="ml-2 text-sm text-slate-600">
-                    Loading files...
-                  </span>
-                </div>
-              ) : uploadedFiles.length > 0 ? (
-                <div className="space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-white rounded-md border border-slate-200 hover:border-indigo-300 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="p-2 rounded-md bg-indigo-100">
-                          <File className="w-4 h-4 text-indigo-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="text-sm font-medium text-slate-800 truncate"
-                            title={file.name}
-                          >
-                            {file.name}
-                            {file.isExisting && (
-                              <span className="ml-2 text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                                Existing
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-slate-500">
-                              {formatFileSize(file.size)}
-                            </span>
-                            <span className="text-xs text-slate-400">•</span>
-                            <span className="text-xs text-slate-500">
-                              {file.uploadedAt.toLocaleDateString()}{" "}
-                              {file.uploadedAt.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleDeleteFile(file.name, index)}
-                          disabled={deleteLoading}
-                          className="ml-2 p-1 hover:bg-red-100 rounded-md transition-colors disabled:opacity-50"
-                          title="Delete file from server permanently"
-                        >
-                          {deleteLoading ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setUploadedFiles((prev) =>
-                              prev.filter((_, i) => i !== index),
-                            );
-                            toast.success("File removed from list", {
-                              duration: 2000,
-                              position: "top-center",
-                            });
-                          }}
-                          className="ml-2 p-1 hover:bg-red-100 rounded-md transition-colors"
-                          title="Remove file from this list only"
-                        >
-                          <X className="w-4 h-4 text-red-600" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <File className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-600">No files available</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Upload files to start analyzing data
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1094,7 +1082,12 @@ export function SalesDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
               <Card
                 className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => fetchDashboardData("Plot a sales Dashboard")}
+                onClick={() => {
+                  const fileNames = getFileNames();
+                  if (fileNames) {
+                    fetchDashboardData("Plot a sales Dashboard", fileNames);
+                  }
+                }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-3">
@@ -1112,9 +1105,12 @@ export function SalesDashboard() {
 
               <Card
                 className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() =>
-                  fetchDashboardData("Show me product performance")
-                }
+                onClick={() => {
+                  const fileNames = getFileNames();
+                  if (fileNames) {
+                    fetchDashboardData("Show me product performance", fileNames);
+                  }
+                }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-3">
@@ -1134,7 +1130,12 @@ export function SalesDashboard() {
 
               <Card
                 className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => fetchDashboardData("Analyze branch sales")}
+                onClick={() => {
+                  const fileNames = getFileNames();
+                  if (fileNames) {
+                    fetchDashboardData("Analyze branch sales", fileNames);
+                  }
+                }}
               >
                 <CardContent className="p-6">
                   <div className="flex items-center gap-3 mb-3">
@@ -1153,6 +1154,317 @@ export function SalesDashboard() {
             </div>
           </div>
         </div>
+
+        {/* File Selection Dialog */}
+        {showFileDialog && (
+          <>
+            <div 
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setShowFileDialog(false)}
+            />
+            <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl z-50 flex flex-col">
+              <div className="p-6 border-b flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Database className="w-6 h-6 text-indigo-600" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">Select Data Sources</h3>
+                      <p className="text-sm text-slate-500">
+                        Choose the data sources you want to analyze
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowFileDialog(false)}
+                    className="p-2 hover:bg-slate-100 rounded-md"
+                  >
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex-1 flex gap-6 p-6 overflow-hidden">
+                {/* Left side - Available files */}
+                <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
+                  <div className="p-4 border-b">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-slate-800">Available Files</h4>
+                      <Badge variant="secondary">
+                        {uploadedFiles.length} available
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Select files from your uploaded data
+                    </p>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto p-4">
+                    {uploadedFiles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <File className="w-12 h-12 text-slate-300 mb-3" />
+                        <p className="text-base text-slate-500 font-medium">
+                          No files available
+                        </p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Upload files to start analyzing data
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {uploadedFiles.map((file) => (
+                          <div
+                            key={file.name}
+                            className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="p-2 rounded-md bg-indigo-100">
+                                <File className="w-4 h-4 text-indigo-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-800 truncate">
+                                  {file.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-slate-500">
+                                    {formatFileSize(file.size)}
+                                  </span>
+                                  <span className="text-xs text-slate-400">•</span>
+                                  <span className="text-xs text-slate-500">
+                                    {file.uploadedAt.toLocaleDateString()}
+                                  </span>
+                                  {file.isExisting && (
+                                    <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                                      Existing
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => toggleFileSelection(file.name)}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  selectedFiles.includes(file.name)
+                                    ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                                title={selectedFiles.includes(file.name) ? "Remove from selection" : "Add to selection"}
+                              >
+                                {selectedFiles.includes(file.name) ? (
+                                  <X className="w-4 h-4" />
+                                ) : (
+                                  <Plus className="w-4 h-4" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFile(file.name)}
+                                disabled={deleteLoading}
+                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                title="Delete file"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowFileDialog(false);
+                        setShowFileUploadModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="font-medium">Upload New File</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Right side - Selected files */}
+                <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
+                  <div className="p-4 border-b">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-slate-800">Selected Files</h4>
+                      {selectedFiles.length > 0 && (
+                        <Badge variant="secondary">
+                          {selectedFiles.length} selected
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Files that will be used for analysis
+                    </p>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto p-4">
+                    {selectedFiles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <File className="w-12 h-12 text-slate-300 mb-3" />
+                        <p className="text-base text-slate-500 font-medium">
+                          No files selected
+                        </p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Select files from the left panel
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedFiles.map((fileName) => {
+                          const file = uploadedFiles.find(f => f.name === fileName);
+                          return (
+                            <div
+                              key={fileName}
+                              className="flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-md bg-indigo-100">
+                                  <File className="w-4 h-4 text-indigo-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate">
+                                    {fileName}
+                                  </p>
+                                  {file && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-xs text-slate-500">
+                                        {formatFileSize(file.size)}
+                                      </span>
+                                      <span className="text-xs text-slate-400">•</span>
+                                      <span className="text-xs text-slate-500">
+                                        {file.uploadedAt.toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => toggleFileSelection(fileName)}
+                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                title="Remove file"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 border-t">
+                    {selectedFiles.length > 0 && (
+                      <button
+                        onClick={() => setSelectedFiles([])}
+                        className="w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                      >
+                        Clear All Selections
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t flex-shrink-0 flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFileDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => setShowFileDialog(false)}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* File Upload Modal */}
+        {showFileUploadModal && (
+          <>
+            <div 
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setShowFileUploadModal(false)}
+            />
+            <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Upload New File</h3>
+                  <button
+                    onClick={() => setShowFileUploadModal(false)}
+                    className="p-1 hover:bg-slate-100 rounded-md"
+                  >
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv,.json"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    multiple
+                  />
+                  
+                  {/* Upload success message */}
+                  {uploadSuccess && recentlyUploadedFile ? (
+                    <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                        <Check className="w-8 h-8 text-green-600" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-green-700 mb-2">Upload Successful!</h4>
+                      <p className="text-green-600 mb-1">
+                        File uploaded: <span className="font-medium">{recentlyUploadedFile}</span>
+                      </p>
+                      <p className="text-sm text-green-500">
+                        Returning to file selection in 3 seconds...
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+                      >
+                        <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                        <p className="text-slate-600 font-medium">Click to upload files</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                          Supported formats: CSV, Excel, JSON
+                        </p>
+                      </div>
+                      
+                      {uploading && (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                          <span className="ml-2 text-sm text-slate-600">Uploading...</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                <div className="flex justify-end gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFileUploadModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -1215,61 +1527,81 @@ export function SalesDashboard() {
         />
 
         {/* Query Input Form */}
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const query = (e.target as any).query?.value;
-            if (!query?.trim() || loading) return;
-            await fetchDashboardData(query.trim());
-          }}
-          className="flex gap-2"
-        >
-          <input
-            type="text"
-            name="query"
-            placeholder="Ask for a dashboard based on your uploaded data (e.g., 'Plot a sales Dashboard')"
-            className="flex-1 text-base h-12 px-4 border-2 border-slate-200 focus:border-indigo-500 rounded-md"
-            disabled={loading}
-          />
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              variant="outline"
-              className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 h-12 px-4"
-            >
-              {uploading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Data
-                </>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <div className="bg-white border-2 border-slate-200 focus-within:border-indigo-500 rounded-md overflow-hidden">
+              <textarea
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Ask for a dashboard based on your uploaded data (e.g., 'Plot a sales Dashboard')"
+                className="w-full text-base h-32 px-4 py-3 outline-none resize-none"
+                disabled={loading}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendQuery();
+                  }
+                }}
+              />
+              
+              {/* Selected files display inside chat bubble */}
+              {selectedFiles.length > 0 && (
+                <div className="px-4 py-2 border-t border-slate-100 bg-slate-50">
+                  <div className="flex items-center gap-2 mb-1">
+                    <File className="w-3 h-3 text-slate-500" />
+                    <span className="text-xs text-slate-500">Selected files:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedFiles.map((file) => (
+                      <div
+                        key={file}
+                        className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-200"
+                      >
+                        <File className="w-3 h-3 text-slate-500" />
+                        <span className="text-xs text-slate-700 truncate max-w-[80px]">
+                          {file}
+                        </span>
+                        <button
+                          onClick={() => toggleFileSelection(file)}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 h-12 px-6"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Generate Dashboard
-                </>
-              )}
-            </Button>
+              
+              <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between">
+                {/* Plus button for file selection */}
+                <button
+                  onClick={() => setShowFileDialog(true)}
+                  className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors flex items-center gap-2"
+                  title="Select files"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="text-sm">Select Files</span>
+                </button>
+                
+                <div className="flex items-center gap-2">
+                  {/* Send button inside chat bubble */}
+                  <button
+                    onClick={handleSendQuery}
+                    disabled={!query.trim() || selectedFiles.length === 0 || loading}
+                    className={`p-2 rounded-full transition-colors ${
+                      query.trim() && selectedFiles.length > 0 && !loading
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    }`}
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
+        </div>
 
         {/* Quick Query Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -1286,136 +1618,19 @@ export function SalesDashboard() {
               key={index}
               variant="outline"
               size="sm"
-              onClick={() => fetchDashboardData(q)}
+              onClick={() => {
+                setQuery(q);
+                const fileNames = getFileNames();
+                if (fileNames) {
+                  fetchDashboardData(q, fileNames);
+                }
+              }}
               disabled={loading}
               className="text-sm border-slate-300 hover:border-indigo-400 hover:bg-indigo-50"
             >
               {q}
             </Button>
           ))}
-        </div>
-
-        {/* Uploaded Files Section - Only shown when files are uploaded */}
-        <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-medium text-slate-700">
-                Available Files ({uploadedFiles.length})
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleRefreshFiles}
-                disabled={loadingFiles}
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-1"
-              >
-                {loadingFiles ? (
-                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-indigo-600"></div>
-                ) : (
-                  <RefreshCw className="w-3 h-3" />
-                )}
-                Refresh
-              </Button>
-              <Button
-                onClick={() => setUploadedFiles([])}
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-red-600 hover:bg-red-50"
-              >
-                Clear All
-              </Button>
-            </div>
-          </div>
-
-          {loadingFiles ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-              <span className="ml-2 text-sm text-slate-600">
-                Loading files...
-              </span>
-            </div>
-          ) : uploadedFiles.length > 0 ? (
-            <div className="space-y-2">
-              {uploadedFiles.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-white rounded-md border border-slate-200 hover:border-indigo-300 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="p-2 rounded-md bg-indigo-100">
-                      <File className="w-4 h-4 text-indigo-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="text-sm font-medium text-slate-800 truncate"
-                        title={file.name}
-                      >
-                        {file.name}
-                        {file.isExisting && (
-                          <span className="ml-2 text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                            Existing
-                          </span>
-                        )}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-500">
-                          {formatFileSize(file.size)}
-                        </span>
-                        <span className="text-xs text-slate-400">•</span>
-                        <span className="text-xs text-slate-500">
-                          {file.uploadedAt.toLocaleDateString()}{" "}
-                          {file.uploadedAt.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleDeleteFile(file.name, index)}
-                      disabled={deleteLoading}
-                      className="ml-2 p-1 hover:bg-red-100 rounded-md transition-colors disabled:opacity-50"
-                      title="Delete file from server permanently"
-                    >
-                      {deleteLoading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                      ) : (
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setUploadedFiles((prev) =>
-                          prev.filter((_, i) => i !== index),
-                        );
-                        toast.success("File removed from list", {
-                          duration: 2000,
-                          position: "top-center",
-                        });
-                      }}
-                      className="ml-2 p-1 hover:bg-red-100 rounded-md transition-colors"
-                      title="Remove file from this list only"
-                    >
-                      <X className="w-4 h-4 text-red-600" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <File className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-600">No files available</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Upload files to start analyzing data
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1646,7 +1861,7 @@ export function SalesDashboard() {
                   </h3>
 
                   {/* DYNAMIC CONTENT FROM BACKEND */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap=6">
                     {dashboardData.charts.map((chart, index) =>
                       renderChart(chart, index),
                     )}
@@ -1715,6 +1930,317 @@ export function SalesDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* File Selection Dialog */}
+      {showFileDialog && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/50 z-50"
+            onClick={() => setShowFileDialog(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl z-50 flex flex-col">
+            <div className="p-6 border-b flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Database className="w-6 h-6 text-indigo-600" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-800">Select Data Sources</h3>
+                    <p className="text-sm text-slate-500">
+                      Choose the data sources you want to analyze
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFileDialog(false)}
+                  className="p-2 hover:bg-slate-100 rounded-md"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 flex gap-6 p-6 overflow-hidden">
+              {/* Left side - Available files */}
+              <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-slate-800">Available Files</h4>
+                    <Badge variant="secondary">
+                      {uploadedFiles.length} available
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    Select files from your uploaded data
+                    </p>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto p-4">
+                    {uploadedFiles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <File className="w-12 h-12 text-slate-300 mb-3" />
+                        <p className="text-base text-slate-500 font-medium">
+                          No files available
+                        </p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Upload files to start analyzing data
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {uploadedFiles.map((file) => (
+                          <div
+                            key={file.name}
+                            className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="p-2 rounded-md bg-indigo-100">
+                                <File className="w-4 h-4 text-indigo-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-800 truncate">
+                                  {file.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-slate-500">
+                                    {formatFileSize(file.size)}
+                                  </span>
+                                  <span className="text-xs text-slate-400">•</span>
+                                  <span className="text-xs text-slate-500">
+                                    {file.uploadedAt.toLocaleDateString()}
+                                  </span>
+                                  {file.isExisting && (
+                                    <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                                      Existing
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => toggleFileSelection(file.name)}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  selectedFiles.includes(file.name)
+                                    ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                                title={selectedFiles.includes(file.name) ? "Remove from selection" : "Add to selection"}
+                              >
+                                {selectedFiles.includes(file.name) ? (
+                                  <X className="w-4 h-4" />
+                                ) : (
+                                  <Plus className="w-4 h-4" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFile(file.name)}
+                                disabled={deleteLoading}
+                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                title="Delete file"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 border-t">
+                    <button
+                      onClick={() => {
+                        setShowFileDialog(false);
+                        setShowFileUploadModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                    >
+                      <Upload className="w-5 h-5" />
+                      <span className="font-medium">Upload New File</span>
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Right side - Selected files */}
+                <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
+                  <div className="p-4 border-b">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-slate-800">Selected Files</h4>
+                      {selectedFiles.length > 0 && (
+                        <Badge variant="secondary">
+                          {selectedFiles.length} selected
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Files that will be used for analysis
+                    </p>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto p-4">
+                    {selectedFiles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full py-12">
+                        <File className="w-12 h-12 text-slate-300 mb-3" />
+                        <p className="text-base text-slate-500 font-medium">
+                          No files selected
+                        </p>
+                        <p className="text-sm text-slate-400 mt-1">
+                          Select files from the left panel
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedFiles.map((fileName) => {
+                          const file = uploadedFiles.find(f => f.name === fileName);
+                          return (
+                            <div
+                              key={fileName}
+                              className="flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="p-2 rounded-md bg-indigo-100">
+                                  <File className="w-4 h-4 text-indigo-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-800 truncate">
+                                    {fileName}
+                                  </p>
+                                  {file && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-xs text-slate-500">
+                                        {formatFileSize(file.size)}
+                                      </span>
+                                      <span className="text-xs text-slate-400">•</span>
+                                      <span className="text-xs text-slate-500">
+                                        {file.uploadedAt.toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => toggleFileSelection(fileName)}
+                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                                title="Remove file"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-4 border-t">
+                    {selectedFiles.length > 0 && (
+                      <button
+                        onClick={() => setSelectedFiles([])}
+                        className="w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                      >
+                        Clear All Selections
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t flex-shrink-0 flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFileDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => setShowFileDialog(false)}
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* File Upload Modal */}
+        {showFileUploadModal && (
+          <>
+            <div 
+              className="fixed inset-0 bg-black/50 z-50"
+              onClick={() => setShowFileUploadModal(false)}
+            />
+            <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-slate-800">Upload New File</h3>
+                  <button
+                    onClick={() => setShowFileUploadModal(false)}
+                    className="p-1 hover:bg-slate-100 rounded-md"
+                  >
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv,.json"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    multiple
+                  />
+                  
+                  {/* Upload success message */}
+                  {uploadSuccess && recentlyUploadedFile ? (
+                    <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                        <Check className="w-8 h-8 text-green-600" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-green-700 mb-2">Upload Successful!</h4>
+                      <p className="text-green-600 mb-1">
+                        File uploaded: <span className="font-medium">{recentlyUploadedFile}</span>
+                      </p>
+                      <p className="text-sm text-green-500">
+                        Returning to file selection in 3 seconds...
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+                      >
+                        <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                        <p className="text-slate-600 font-medium">Click to upload files</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                          Supported formats: CSV, Excel, JSON
+                        </p>
+                      </div>
+                      
+                      {uploading && (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                          <span className="ml-2 text-sm text-slate-600">Uploading...</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                
+                <div className="flex justify-end gap-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFileUploadModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
     </div>
   );
 }

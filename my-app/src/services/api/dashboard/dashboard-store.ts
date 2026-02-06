@@ -5,13 +5,13 @@ interface DashboardState {
   loading: boolean;
   hasData: boolean;
   dashboardData: DashboardBackendResponse;
-  fetchDashboardData: (query: string) => Promise<void>;
+  fetchDashboardData: (query: string,file_name:string) => Promise<void>;
   resetDashboard: () => void;
 }
 
 const INITIAL_DASHBOARD_DATA: DashboardBackendResponse = {
   kpis: [],
-  charts: []
+  charts: [],
 };
 
 export const useDashboardStore = create<DashboardState>((set) => ({
@@ -19,44 +19,43 @@ export const useDashboardStore = create<DashboardState>((set) => ({
   hasData: false,
   dashboardData: INITIAL_DASHBOARD_DATA,
 
-  fetchDashboardData: async (query: string) => {
-    console.log('🔄 Starting to fetch dashboard data for query:', query);
+  fetchDashboardData: async (query: string,file_name:string) => {
+    console.log("🔄 Starting to fetch dashboard data for query:", query);
     set({ loading: true, hasData: false });
-    
+
     try {
       // Call actual API - NO FALLBACK DATA
-      console.log('📞 Calling backend API...');
-      const data = await dashboardAPI.fetchDashboardData(query);
-      
-      console.log('✅ API call successful, updating store with data');
-      set({ 
+      console.log("📞 Calling backend API...");
+      const data = await dashboardAPI.fetchDashboardData(query,file_name);
+
+      console.log("✅ API call successful, updating store with data");
+      set({
         dashboardData: data,
         hasData: true,
-        loading: false 
+        loading: false,
       });
-      
     } catch (error) {
       console.error("❌ Error fetching dashboard data:", error);
-      
+
       // NO FALLBACK DATA - just set empty state
-      console.log('⚠️ API call failed, setting empty state');
-      set({ 
+      console.log("⚠️ API call failed, setting empty state");
+      set({
         dashboardData: INITIAL_DASHBOARD_DATA,
         hasData: false,
-        loading: false 
+        loading: false,
       });
-      
+
       // Show error to user
       throw error;
     }
   },
 
   resetDashboard: () => {
-    console.log('🔄 Resetting dashboard state');
+    console.log("🔄 Resetting dashboard state");
     set({
       hasData: false,
       dashboardData: INITIAL_DASHBOARD_DATA,
-      loading: false
+      loading: false,
     });
-  }
+  },
 }));

@@ -1,0 +1,533 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { url } from "../api-url";
+import { toast } from "sonner";
+import { create } from "zustand";
+
+export interface KPI {
+  title: string;
+  value: string;
+  description: string;
+}
+
+export interface ChartOption {
+  title: { text: string; left: string };
+  tooltip: any;
+  legend?: any;
+  xAxis?: any;
+  yAxis?: any;
+  series: any[];
+  [key: string]: any;
+}
+
+export interface DashboardBackendResponse {
+  kpis: KPI[];
+  charts: ChartOption[];
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  result?: DashboardBackendResponse;
+}
+
+export class DashboardAPI {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = `${url.backendUrl}`) {
+    this.baseUrl = baseUrl;
+    console.log("🔧 DashboardAPI initialized with baseUrl:", this.baseUrl);
+  }
+
+  /**
+   * Fetch dashboard data from backend
+   */
+  async fetchDashboardData(message: string, file_name: string): Promise<DashboardBackendResponse> {
+    console.group("📡 API Call: fetchDashboardData");
+    console.log("📤 Request Details:");
+    console.log("  - URL:", `${this.baseUrl}/llm/dashboard`);
+    console.log("  - Method:", "POST");
+    console.log("  - Message:", message);
+    console.log("  - File Name:", file_name);
+    console.log("  - Timestamp:", new Date().toISOString());
+
+    try {
+      const requestBody = { message, file_name };
+      console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));
+
+      const startTime = performance.now();
+      const getAuthToken = (): string | null => {
+        return localStorage.getItem("auth_token");
+      };
+
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error("Authentication required. Please login first.");
+      }
+
+      const response = await fetch(`${this.baseUrl}/llm/dashboard`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(2);
+
+      console.log("📥 Response Received:");
+      console.log("  - Status:", response.status);
+      console.log("  - Status Text:", response.statusText);
+      console.log("  - Duration:", `${duration}ms`);
+      console.log("  - OK:", response.ok);
+
+      if (!response.ok) {
+        console.error("❌ HTTP Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+        });
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      console.log("✅ Raw Response Data:", responseData);
+      console.log("  - Type:", typeof responseData);
+      console.log("  - Is Array:", Array.isArray(responseData));
+      console.log(
+        "  - Length:",
+        Array.isArray(responseData) ? responseData.length : "N/A",
+      );
+
+      // Handle different response formats from backend
+      let kpis: KPI[] = [];
+      let charts: ChartOption[] = [];
+
+      if (Array.isArray(responseData)) {
+        // Backend returns array of KPIs (no charts yet)
+        // We'll accept this and frontend will handle empty charts
+        kpis = responseData;
+        charts = []; // Empty charts array - frontend will handle this
+        console.log(`📊 Backend returned ${kpis.length} KPIs, 0 charts`);
+      } else if (responseData.kpis && responseData.charts) {
+        // Backend returns structured object with both kpis and charts
+        kpis = responseData.kpis;
+        charts = responseData.charts;
+        console.log(
+          `📊 Backend returned ${kpis.length} KPIs, ${charts.length} charts`,
+        );
+      } else {
+        console.error("❌ Unexpected response format:", responseData);
+        throw new Error("Invalid response format");
+      }
+
+      // Log detailed KPI info
+      console.log("📊 KPIs Details:");
+      kpis.forEach((kpi: KPI, index: number) => {
+        console.log(`  - KPI ${index + 1}:`, {
+          title: kpi.title,
+          value: kpi.value,
+          description: kpi.description,
+        });
+      });
+
+      // Log detailed chart info
+      console.log("📈 Charts Details:");
+      charts.forEach((chart: ChartOption, index: number) => {
+        console.log(`  - Chart ${index + 1}:`, {
+          title: chart.title?.text,
+          type: chart.series?.[0]?.type,
+          dataPoints: chart.series?.[0]?.data?.length || 0,
+        });
+      });
+
+      console.groupEnd();
+
+      // Return EXACTLY what backend provides (or transformed to our interface)
+      return {
+        kpis,
+        charts,
+      };
+    } catch (error) {
+      console.error("❌ API Call Failed:");
+      console.error(
+        "  - Error Type:",
+        error instanceof Error ? error.constructor.name : typeof error,
+      );
+      console.error(
+        "  - Error Message:",
+        error instanceof Error ? error.message : String(error),
+      );
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
+      console.groupEnd();
+      throw error;
+    }
+  }
+
+  /**
+   * Get task status (for polling)
+   */
+  async getTaskStatus(taskId: string): Promise<TaskStatus> {
+    console.group("📡 API Call: getTaskStatus");
+    console.log("📤 Request Details:");
+    console.log("  - URL:", `${this.baseUrl}/llm/dashboard/${taskId}`);
+    console.log("  - Method:", "GET");
+    console.log("  - Task ID:", taskId);
+    console.log("  - Timestamp:", new Date().toISOString());
+
+    try {
+      const startTime = performance.now();
+      const getAuthToken = (): string | null => {
+        return localStorage.getItem("auth_token");
+      };
+
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error("Authentication required. Please login first.");
+      }
+
+      const response = await fetch(`${this.baseUrl}/llm/dashboard/${taskId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(2);
+
+      console.log("📥 Response Received:");
+      console.log("  - Status:", response.status);
+      console.log("  - Status Text:", response.statusText);
+      console.log("  - Duration:", `${duration}ms`);
+      console.log("  - OK:", response.ok);
+
+      if (!response.ok) {
+        console.error("❌ HTTP Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+        });
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseData: TaskStatus = await response.json();
+
+      console.log("✅ Task Status Response:", responseData);
+      console.log("  - Task ID:", responseData.task_id);
+      console.log("  - Status:", responseData.status);
+      console.log("  - Has Result:", !!responseData.result);
+      
+      if (responseData.result) {
+        console.log("  - Result KPIs Count:", responseData.result.kpis?.length || 0);
+        console.log("  - Result Charts Count:", responseData.result.charts?.length || 0);
+      }
+
+      console.groupEnd();
+      return responseData;
+    } catch (error) {
+      console.error("❌ API Call Failed:");
+      console.error(
+        "  - Error Type:",
+        error instanceof Error ? error.constructor.name : typeof error,
+      );
+      console.error(
+        "  - Error Message:",
+        error instanceof Error ? error.message : String(error),
+      );
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
+      console.groupEnd();
+      throw error;
+    }
+  }
+
+  /**
+   * Create dashboard task (initial request that returns task ID)
+   */
+  async createDashboardTask(message: string, file_name: string): Promise<{ task_id: string }> {
+    console.group("📡 API Call: createDashboardTask");
+    console.log("📤 Request Details:");
+    console.log("  - URL:", `${this.baseUrl}/llm/dashboard`);
+    console.log("  - Method:", "POST");
+    console.log("  - Message:", message);
+    console.log("  - File Name:", file_name);
+    console.log("  - Timestamp:", new Date().toISOString());
+
+    try {
+      const requestBody = { message, file_name };
+      console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));
+
+      const startTime = performance.now();
+      const getAuthToken = (): string | null => {
+        return localStorage.getItem("auth_token");
+      };
+
+      const token = getAuthToken();
+
+      if (!token) {
+        throw new Error("Authentication required. Please login first.");
+      }
+
+      const response = await fetch(`${this.baseUrl}/llm/dashboard`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(2);
+
+      console.log("📥 Response Received:");
+      console.log("  - Status:", response.status);
+      console.log("  - Status Text:", response.statusText);
+      console.log("  - Duration:", `${duration}ms`);
+      console.log("  - OK:", response.ok);
+
+      if (!response.ok) {
+        console.error("❌ HTTP Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+        });
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      console.log("✅ Task Created Response:", responseData);
+      console.log("  - Task ID:", responseData.task_id);
+      
+      if (!responseData.task_id) {
+        console.error("❌ No task_id in response:", responseData);
+        throw new Error("No task_id received from server");
+      }
+
+      console.groupEnd();
+      return { task_id: responseData.task_id };
+    } catch (error) {
+      console.error("❌ API Call Failed:");
+      console.error(
+        "  - Error Type:",
+        error instanceof Error ? error.constructor.name : typeof error,
+      );
+      console.error(
+        "  - Error Message:",
+        error instanceof Error ? error.message : String(error),
+      );
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
+      console.groupEnd();
+      throw error;
+    }
+  }
+}
+
+export const dashboardAPI = new DashboardAPI();
+console.log("✅ Dashboard API instance created");
+
+interface DashboardState {
+  loading: boolean;
+  hasData: boolean;
+  dashboardData: DashboardBackendResponse;
+  currentTaskId: string | null;
+  polling: boolean;
+  pollIntervalId: NodeJS.Timeout | null;
+  fetchDashboardData: (query: string, file_name: string) => Promise<void>;
+  stopPolling: () => void;
+  resetDashboard: () => void;
+  pollTaskStatus: (taskId: string) => Promise<void>;
+}
+
+const INITIAL_DASHBOARD_DATA: DashboardBackendResponse = {
+  kpis: [],
+  charts: [],
+};
+
+export const useDashboardStore = create<DashboardState>((set, get) => ({
+  loading: false,
+  hasData: false,
+  dashboardData: INITIAL_DASHBOARD_DATA,
+  currentTaskId: null,
+  polling: false,
+  pollIntervalId: null,
+
+  fetchDashboardData: async (query: string, file_name: string) => {
+    console.log("🔄 Starting to fetch dashboard data for query:", query);
+    console.log("📁 File names being sent:", file_name);
+    set({ loading: true, hasData: false });
+
+    try {
+      // Step 1: Create task and get task ID
+      console.log("📞 Creating dashboard task...");
+      const { task_id } = await dashboardAPI.createDashboardTask(query, file_name);
+      
+      console.log("✅ Task created with ID:", task_id);
+      
+      // Step 2: Store task ID and start polling
+      set({ 
+        currentTaskId: task_id, 
+        polling: true,
+        loading: false  // We're not loading anymore, we're polling
+      });
+
+      // Step 3: Start polling for this task
+      get().pollTaskStatus(task_id);
+
+    } catch (error) {
+      console.error("❌ Error creating dashboard task:", error);
+
+      // NO FALLBACK DATA - just set empty state
+      console.log("⚠️ Task creation failed, setting empty state");
+      set({
+        dashboardData: INITIAL_DASHBOARD_DATA,
+        hasData: false,
+        loading: false,
+        polling: false,
+        currentTaskId: null,
+      });
+
+      // Show error to user
+      toast.error(error instanceof Error ? error.message : "Failed to create task", {
+        duration: 3000,
+        position: "top-center",
+      });
+    }
+  },
+
+  pollTaskStatus: async (taskId: string) => {
+    const poll = async () => {
+      const { polling } = get();
+      if (!polling) {
+        console.log("🛑 Polling stopped for task:", taskId);
+        return;
+      }
+
+      try {
+        console.log("🔍 Polling task status for:", taskId);
+        const taskStatus = await dashboardAPI.getTaskStatus(taskId);
+        
+        console.log("📊 Task Status Update:", {
+          taskId: taskStatus.task_id,
+          status: taskStatus.status,
+          hasResult: !!taskStatus.result
+        });
+
+        switch (taskStatus.status) {
+          case 'completed':
+            console.log("✅ Task completed successfully!");
+            if (taskStatus.result) {
+              set({
+                dashboardData: taskStatus.result,
+                hasData: true,
+                loading: false,
+                polling: false,
+                currentTaskId: null,
+              });
+              toast.success("Dashboard generated successfully!", {
+                duration: 3000,
+                position: "top-center",
+              });
+            } else {
+              console.error("❌ Task completed but no result found");
+              set({
+                dashboardData: INITIAL_DASHBOARD_DATA,
+                hasData: false,
+                loading: false,
+                polling: false,
+                currentTaskId: null,
+              });
+              toast.error("Task completed but no data received", {
+                duration: 3000,
+                position: "top-center",
+              });
+            }
+            break;
+
+          case 'failed':
+            console.error("❌ Task failed");
+            set({
+              dashboardData: INITIAL_DASHBOARD_DATA,
+              hasData: false,
+              loading: false,
+              polling: false,
+              currentTaskId: null,
+            });
+            toast.error("Task processing failed", {
+              duration: 3000,
+              position: "top-center",
+            });
+            break;
+
+          case 'pending':
+          case 'processing':
+            console.log("⏳ Task still processing:", taskStatus.status);
+            // Continue polling after 5 seconds
+            setTimeout(() => {
+              if (get().polling && get().currentTaskId === taskId) {
+                get().pollTaskStatus(taskId);
+              }
+            }, 20000);
+            break;
+
+          default:
+            console.warn("⚠️ Unknown task status:", taskStatus.status);
+            // Continue polling after 5 seconds
+            setTimeout(() => {
+              if (get().polling && get().currentTaskId === taskId) {
+                get().pollTaskStatus(taskId);
+              }
+            }, 20000);
+            break;
+        }
+      } catch (error) {
+        console.error("❌ Error polling task status:", error);
+        // On error, stop polling and show error
+        set({
+          dashboardData: INITIAL_DASHBOARD_DATA,
+          hasData: false,
+          loading: false,
+          polling: false,
+          currentTaskId: null,
+        });
+        toast.error("Failed to check task status", {
+          duration: 3000,
+          position: "top-center",
+        });
+      }
+    };
+
+    // Start polling
+    poll();
+  },
+
+  stopPolling: () => {
+    console.log("🛑 Stopping polling");
+    set({
+      polling: false,
+      currentTaskId: null,
+      loading: false,
+    });
+    toast.info("Polling stopped", {
+      duration: 2000,
+      position: "top-center",
+    });
+  },
+
+  resetDashboard: () => {
+    console.log("🔄 Resetting dashboard state");
+    set({
+      hasData: false,
+      dashboardData: INITIAL_DASHBOARD_DATA,
+      loading: false,
+      polling: false,
+      currentTaskId: null,
+    });
+  },
+}));
