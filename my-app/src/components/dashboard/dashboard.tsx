@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react/no-unescaped-entities */
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 
@@ -41,6 +41,7 @@ import {
   Send,
   Check,
   Database,
+  ChevronDown,
 } from "lucide-react";
 
 import * as htmlToImage from "html-to-image";
@@ -102,6 +103,7 @@ export function SalesDashboard() {
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
   const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const {
     loading,
@@ -945,15 +947,53 @@ export function SalesDashboard() {
 
         {/* Welcome Section */}
         <div className="max-w-5xl mx-auto mb-10">
-          {/* User info */}
+          {/* User info with dropdown */}
           {userEmail && (
-            <div className="flex justify-end mb-4">
-              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg">
+            <div className="flex justify-end mb-4 relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-indigo-300 rounded-lg transition-colors shadow-sm hover:shadow"
+              >
                 <User className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm font-medium text-indigo-800">
+                <span className="text-sm font-medium text-slate-800">
                   {userEmail}
                 </span>
-              </div>
+                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* User dropdown menu */}
+              {showUserMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          handleSettings();
+                          setShowUserMenu(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setShowUserMenu(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1474,7 +1514,7 @@ export function SalesDashboard() {
     <div className="w-full h-full bg-gray-50 p-6">
       <Toaster />
 
-      {/* Top Navigation Bar */}
+      {/* Top Navigation Bar - REMOVED SETTINGS AND LOGOUT FROM HERE */}
       <div className="max-w-7xl mx-auto mb-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Button
@@ -1486,33 +1526,58 @@ export function SalesDashboard() {
             New Query
           </Button>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-lg">
-            <User className="w-4 h-4 text-indigo-600" />
-            <span className="text-sm font-medium text-indigo-800">
-              {userEmail}
-            </span>
-          </div>
+          {/* User info with dropdown in dashboard view */}
+          {userEmail && (
+            <div className="relative">
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-300 rounded-lg transition-colors shadow-sm"
+              >
+                <User className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-medium text-slate-800">
+                  {userEmail.split('@')[0]} {/* Show only username */}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {/* User dropdown menu */}
+              {showUserMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
+                    <div className="p-2">
+                      <button
+                        onClick={() => {
+                          handleSettings();
+                          setShowUserMenu(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                      >
+                        <Settings className="w-4 h-4" />
+                        Settings
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setShowUserMenu(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleSettings}
-            variant="outline"
-            className="border-slate-300 text-slate-700 hover:bg-slate-50"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
-
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="border-red-300 text-red-700 hover:bg-red-50"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-        </div>
+        {/* REMOVED SETTINGS AND LOGOUT BUTTONS FROM HERE */}
       </div>
 
       {/* Query Input with Upload Button */}

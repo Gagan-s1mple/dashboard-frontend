@@ -94,9 +94,12 @@ export function LoginForm({
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label>Password</Label>
-                  <span className="ml-auto text-xs text-gray-400 hover:underline cursor-pointer">
+                  <a
+                    href="/forgot-password"
+                    className="ml-auto text-xs text-gray-400 hover:text-gray-600 hover:underline cursor-pointer transition"
+                  >
                     Forgot?
-                  </span>
+                  </a>
                 </div>
 
                 <Input

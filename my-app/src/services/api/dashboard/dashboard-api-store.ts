@@ -26,9 +26,9 @@ export interface DashboardBackendResponse {
 }
 
 export interface TaskStatus {
-  task_id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  result?: DashboardBackendResponse;
+  task_id?: string; // Made optional since backend doesn't return it
+  status: "pending" | "processing" | "completed" | "failed";
+  data?: DashboardBackendResponse; // Changed from result to data
 }
 
 export class DashboardAPI {
@@ -42,7 +42,10 @@ export class DashboardAPI {
   /**
    * Fetch dashboard data from backend
    */
-  async fetchDashboardData(message: string, file_name: string): Promise<DashboardBackendResponse> {
+  async fetchDashboardData(
+    message: string,
+    file_name: string,
+  ): Promise<DashboardBackendResponse> {
     console.group("📡 API Call: fetchDashboardData");
     console.log("📤 Request Details:");
     console.log("  - URL:", `${this.baseUrl}/llm/dashboard`);
@@ -219,13 +222,19 @@ export class DashboardAPI {
       const responseData: TaskStatus = await response.json();
 
       console.log("✅ Task Status Response:", responseData);
-      console.log("  - Task ID:", responseData.task_id);
+      console.log("  - Task ID from response:", responseData.task_id);
       console.log("  - Status:", responseData.status);
-      console.log("  - Has Result:", !!responseData.result);
-      
-      if (responseData.result) {
-        console.log("  - Result KPIs Count:", responseData.result.kpis?.length || 0);
-        console.log("  - Result Charts Count:", responseData.result.charts?.length || 0);
+      console.log("  - Has Data:", !!responseData.data);
+
+      if (responseData.data) {
+        console.log(
+          "  - Data KPIs Count:",
+          responseData.data.kpis?.length || 0,
+        );
+        console.log(
+          "  - Data Charts Count:",
+          responseData.data.charts?.length || 0,
+        );
       }
 
       console.groupEnd();
@@ -249,7 +258,10 @@ export class DashboardAPI {
   /**
    * Create dashboard task (initial request that returns task ID)
    */
-  async createDashboardTask(message: string, file_name: string): Promise<{ task_id: string }> {
+  async createDashboardTask(
+    message: string,
+    file_name: string,
+  ): Promise<{ task_id: string }> {
     console.group("📡 API Call: createDashboardTask");
     console.log("📤 Request Details:");
     console.log("  - URL:", `${this.baseUrl}/llm/dashboard`);
@@ -304,7 +316,7 @@ export class DashboardAPI {
 
       console.log("✅ Task Created Response:", responseData);
       console.log("  - Task ID:", responseData.task_id);
-      
+
       if (!responseData.task_id) {
         console.error("❌ No task_id in response:", responseData);
         throw new Error("No task_id received from server");
@@ -366,20 +378,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     try {
       // Step 1: Create task and get task ID
       console.log("📞 Creating dashboard task...");
-      const { task_id } = await dashboardAPI.createDashboardTask(query, file_name);
-      
+      const { task_id } = await dashboardAPI.createDashboardTask(
+        query,
+        file_name,
+      );
+
       console.log("✅ Task created with ID:", task_id);
-      
+
       // Step 2: Store task ID and start polling
-      set({ 
-        currentTaskId: task_id, 
+      set({
+        currentTaskId: task_id,
         polling: true,
-        loading: false  // We're not loading anymore, we're polling
+        loading: false, // We're not loading anymore, we're polling
       });
 
       // Step 3: Start polling for this task
       get().pollTaskStatus(task_id);
-
     } catch (error) {
       console.error("❌ Error creating dashboard task:", error);
 
@@ -394,10 +408,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       });
 
       // Show error to user
-      toast.error(error instanceof Error ? error.message : "Failed to create task", {
-        duration: 3000,
-        position: "top-center",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create task",
+        {
+          duration: 3000,
+          position: "top-center",
+        },
+      );
     }
   },
 
@@ -412,19 +429,19 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       try {
         console.log("🔍 Polling task status for:", taskId);
         const taskStatus = await dashboardAPI.getTaskStatus(taskId);
-        
+
         console.log("📊 Task Status Update:", {
-          taskId: taskStatus.task_id,
+          taskId: taskId, // Use the taskId we're polling for
           status: taskStatus.status,
-          hasResult: !!taskStatus.result
+          hasData: !!taskStatus.data,
         });
 
         switch (taskStatus.status) {
-          case 'completed':
+          case "completed":
             console.log("✅ Task completed successfully!");
-            if (taskStatus.result) {
+            if (taskStatus.data) {
               set({
-                dashboardData: taskStatus.result,
+                dashboardData: taskStatus.data,
                 hasData: true,
                 loading: false,
                 polling: false,
@@ -435,7 +452,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 position: "top-center",
               });
             } else {
-              console.error("❌ Task completed but no result found");
+              console.error("❌ Task completed but no data found");
               set({
                 dashboardData: INITIAL_DASHBOARD_DATA,
                 hasData: false,
@@ -450,7 +467,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
             }
             break;
 
-          case 'failed':
+          case "failed":
             console.error("❌ Task failed");
             set({
               dashboardData: INITIAL_DASHBOARD_DATA,
@@ -465,10 +482,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
             });
             break;
 
-          case 'pending':
-          case 'processing':
+          case "pending":
+          case "processing":
             console.log("⏳ Task still processing:", taskStatus.status);
-            // Continue polling after 5 seconds
+            // Continue polling after 20 seconds
             setTimeout(() => {
               if (get().polling && get().currentTaskId === taskId) {
                 get().pollTaskStatus(taskId);
@@ -478,7 +495,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
           default:
             console.warn("⚠️ Unknown task status:", taskStatus.status);
-            // Continue polling after 5 seconds
+            // Continue polling after 20 seconds
             setTimeout(() => {
               if (get().polling && get().currentTaskId === taskId) {
                 get().pollTaskStatus(taskId);
