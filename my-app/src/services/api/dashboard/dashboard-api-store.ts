@@ -28,7 +28,8 @@ export interface DashboardBackendResponse {
 export interface TaskStatus {
   task_id?: string; // Made optional since backend doesn't return it
   status: "pending" | "processing" | "completed" | "failed";
-  data?: DashboardBackendResponse; // Changed from result to data
+  result?: DashboardBackendResponse; // Changed from data to result
+  data?: DashboardBackendResponse; // Keep for backward compatibility
 }
 
 export class DashboardAPI {
@@ -224,7 +225,19 @@ export class DashboardAPI {
       console.log("✅ Task Status Response:", responseData);
       console.log("  - Task ID from response:", responseData.task_id);
       console.log("  - Status:", responseData.status);
+      console.log("  - Has Result:", !!responseData.result);
       console.log("  - Has Data:", !!responseData.data);
+
+      if (responseData.result) {
+        console.log(
+          "  - Result KPIs Count:",
+          responseData.result.kpis?.length || 0,
+        );
+        console.log(
+          "  - Result Charts Count:",
+          responseData.result.charts?.length || 0,
+        );
+      }
 
       if (responseData.data) {
         console.log(
@@ -433,15 +446,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         console.log("📊 Task Status Update:", {
           taskId: taskId, // Use the taskId we're polling for
           status: taskStatus.status,
+          hasResult: !!taskStatus.result,
           hasData: !!taskStatus.data,
         });
 
         switch (taskStatus.status) {
           case "completed":
             console.log("✅ Task completed successfully!");
-            if (taskStatus.data) {
+            // Check both result and data fields for compatibility
+            const dashboardResult = taskStatus.result || taskStatus.data;
+            
+            if (dashboardResult) {
+              console.log("📊 Dashboard data received:", {
+                kpisCount: dashboardResult.kpis?.length || 0,
+                chartsCount: dashboardResult.charts?.length || 0,
+              });
+              
               set({
-                dashboardData: taskStatus.data,
+                dashboardData: dashboardResult,
                 hasData: true,
                 loading: false,
                 polling: false,
@@ -452,7 +474,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 position: "top-center",
               });
             } else {
-              console.error("❌ Task completed but no data found");
+              console.error("❌ Task completed but no result/data found");
+              console.error("Task status response:", taskStatus);
+              
               set({
                 dashboardData: INITIAL_DASHBOARD_DATA,
                 hasData: false,

@@ -872,6 +872,7 @@ export function SalesDashboard() {
     return selectedFiles.join(",");
   };
 
+  // UPDATED: handleSendQuery function with .csv extension removal
   const handleSendQuery = async () => {
     if (!query.trim()) {
       toast.error("Please enter a query", {
@@ -887,10 +888,17 @@ export function SalesDashboard() {
     // Log the parameters being sent
     console.log("📤 Sending query to backend:");
     console.log("  - Query:", query.trim());
-    console.log("  - File Names:", fileNames);
+    console.log("  - File Names (original):", fileNames);
     console.log("  - Selected Files Array:", selectedFiles);
 
-    await fetchDashboardData(query.trim(), fileNames);
+    // Remove .csv extension from filenames before sending
+    const cleanFileNames = selectedFiles
+      .map(file => file.replace(/\.csv$/i, '')) // Remove .csv extension (case-insensitive)
+      .join(",");
+    
+    console.log("  - Clean File Names (without .csv):", cleanFileNames);
+
+    await fetchDashboardData(query.trim(), cleanFileNames);
   };
 
   const toggleFileSelection = (fileName: string) => {
@@ -1102,7 +1110,11 @@ export function SalesDashboard() {
                     setQuery(q);
                     const fileNames = getFileNames();
                     if (fileNames) {
-                      fetchDashboardData(q, fileNames);
+                      // Remove .csv extension before sending for quick queries too
+                      const cleanFileNames = selectedFiles
+                        .map(file => file.replace(/\.csv$/i, ''))
+                        .join(",");
+                      fetchDashboardData(q, cleanFileNames);
                     }
                   }}
                   disabled={loading}
@@ -1125,7 +1137,11 @@ export function SalesDashboard() {
                 onClick={() => {
                   const fileNames = getFileNames();
                   if (fileNames) {
-                    fetchDashboardData("Plot a sales Dashboard", fileNames);
+                    // Remove .csv extension before sending
+                    const cleanFileNames = selectedFiles
+                      .map(file => file.replace(/\.csv$/i, ''))
+                      .join(",");
+                    fetchDashboardData("Plot a sales Dashboard", cleanFileNames);
                   }
                 }}
               >
@@ -1148,7 +1164,11 @@ export function SalesDashboard() {
                 onClick={() => {
                   const fileNames = getFileNames();
                   if (fileNames) {
-                    fetchDashboardData("Show me product performance", fileNames);
+                    // Remove .csv extension before sending
+                    const cleanFileNames = selectedFiles
+                      .map(file => file.replace(/\.csv$/i, ''))
+                      .join(",");
+                    fetchDashboardData("Show me product performance", cleanFileNames);
                   }
                 }}
               >
@@ -1173,7 +1193,11 @@ export function SalesDashboard() {
                 onClick={() => {
                   const fileNames = getFileNames();
                   if (fileNames) {
-                    fetchDashboardData("Analyze branch sales", fileNames);
+                    // Remove .csv extension before sending
+                    const cleanFileNames = selectedFiles
+                      .map(file => file.replace(/\.csv$/i, ''))
+                      .join(",");
+                    fetchDashboardData("Analyze branch sales", cleanFileNames);
                   }
                 }}
               >
@@ -1687,7 +1711,11 @@ export function SalesDashboard() {
                 setQuery(q);
                 const fileNames = getFileNames();
                 if (fileNames) {
-                  fetchDashboardData(q, fileNames);
+                  // Remove .csv extension before sending for quick queries too
+                  const cleanFileNames = selectedFiles
+                    .map(file => file.replace(/\.csv$/i, ''))
+                    .join(",");
+                  fetchDashboardData(q, cleanFileNames);
                 }
               }}
               disabled={loading}
