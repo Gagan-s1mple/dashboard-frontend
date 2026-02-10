@@ -54,7 +54,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         hasToken: !!token,
       });
 
-      const response = await fetch(`${url.backendUrl}/api/upload-csv`, {
+      const response = await fetch(`${url.backendUrl}/api/upload-file`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
