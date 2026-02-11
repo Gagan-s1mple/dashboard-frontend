@@ -48,7 +48,10 @@ import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 // CHANGED THIS IMPORT ONLY:
-import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
+import {
+  dashboardAPI,
+  useDashboardStore,
+} from "@/src/services/api/dashboard/dashboard-api-store";
 
 import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
 import { useDeleteFileStore } from "@/src/services/api/dashboard/delete-store";
@@ -101,9 +104,12 @@ export function SalesDashboard() {
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
-  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<string | null>(null);
+  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<
+    string | null
+  >(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
 
   const {
     loading,
@@ -114,6 +120,12 @@ export function SalesDashboard() {
     polling,
     currentTaskId,
     stopPolling,
+    // ADD THESE LINES:
+    currentChatId,
+    currentMessageId,
+    chatHistory,
+    startNewChat,
+    loadChat,
   } = useDashboardStore();
   const { uploading, uploadAndGenerate } = useUploadStore();
   const { deleteFile, loading: deleteLoading } = useDeleteFileStore();
@@ -727,7 +739,7 @@ export function SalesDashboard() {
       }));
 
       setUploadedFiles((prev) => [...prev, ...newFiles]);
-      
+
       // Set the recently uploaded file name for display
       const uploadedFileName = files[0].name;
       setRecentlyUploadedFile(uploadedFileName);
@@ -740,7 +752,7 @@ export function SalesDashboard() {
           position: "top-center",
         },
       );
-      
+
       // Wait for 3 seconds, then close upload modal and show file selection dialog
       setTimeout(() => {
         setShowFileUploadModal(false);
@@ -748,9 +760,8 @@ export function SalesDashboard() {
         setUploadSuccess(false);
         setShowFileDialog(true);
       }, 3000);
-      
     } catch (error) {
-      console.log("error",error)
+      console.log("error", error);
       toast.error("Upload failed. Please try again.", {
         duration: 3000,
         position: "top-center",
@@ -893,18 +904,17 @@ export function SalesDashboard() {
 
     // Remove .csv extension from filenames before sending
     const cleanFileNames = selectedFiles
-      .map(file => file.replace(/\.csv$/i, '')) // Remove .csv extension (case-insensitive)
+      .map((file) => file.replace(/\.csv$/i, "")) // Remove .csv extension (case-insensitive)
       .join(",");
-    
-    console.log("  - Clean File Names (without .csv):", cleanFileNames);
 
+    console.log("  - Clean File Names (without .csv):", cleanFileNames);
     await fetchDashboardData(query.trim(), cleanFileNames);
   };
 
   const toggleFileSelection = (fileName: string) => {
-    setSelectedFiles(prev => {
+    setSelectedFiles((prev) => {
       if (prev.includes(fileName)) {
-        return prev.filter(f => f !== fileName);
+        return prev.filter((f) => f !== fileName);
       } else {
         return [...prev, fileName];
       }
@@ -919,20 +929,20 @@ export function SalesDashboard() {
         <SequentialLoader />
         {polling && currentTaskId && (
           <div className="mt-4 text-center">
-            <p className="text-sm text-slate-500">
+            {/* <p className="text-sm text-slate-500">
               Generating dashboard... Task ID: {currentTaskId.slice(0, 8)}...
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
+            </p> */}
+            {/* <p className="text-xs text-slate-400 mt-1">
               Polling every 20 seconds for status
-            </p>
-            <Button
+            </p> */}
+            {/* <Button
               variant="outline"
               size="sm"
               onClick={stopPolling}
               className="mt-2"
             >
               Cancel Generation
-            </Button>
+            </Button> */}
           </div>
         )}
       </div>
@@ -966,24 +976,110 @@ export function SalesDashboard() {
                 <span className="text-sm font-medium text-slate-800">
                   {userEmail}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-4 h-4 text-slate-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+                />
               </button>
-              
+
               {/* User dropdown menu */}
               {showUserMenu && (
                 <>
-                  <div 
+                  <div
                     className="fixed inset-0 z-40"
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
-                    <div className="p-2">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
+                    <div className="p-3 border-b">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-medium text-slate-800 truncate">
+                          {userEmail}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Chat ID: {currentChatId} | Message:{" "}
+                        {dashboardAPI.getFormattedMessageId()}
+                      </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Chat History */}
+                      <div className="p-2">
+                        <div className="flex items-center justify-between px-2 py-1">
+                          <span className="text-xs font-semibold text-slate-700">
+                            Chat Sessions
+                          </span>
+                          <button
+                            onClick={() => {
+                              startNewChat();
+                              setShowUserMenu(false);
+                            }}
+                            className="text-xs text-indigo-600 hover:text-indigo-700"
+                          >
+                            + New
+                          </button>
+                        </div>
+
+                        {chatHistory.length === 0 ? (
+                          <div className="px-2 py-3 text-center">
+                            <p className="text-xs text-slate-500">
+                              No chat history
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {/* Group by chat_id */}
+                            {Array.from(
+                              new Set(chatHistory.map((msg) => msg.chat_id)),
+                            ).map((chatId) => {
+                              const chatMessages = chatHistory.filter(
+                                (msg) => msg.chat_id === chatId,
+                              );
+                              const lastMessage =
+                                chatMessages[chatMessages.length - 1];
+                              const isActive = chatId === currentChatId;
+
+                              return (
+                                <button
+                                  key={chatId}
+                                  onClick={() => {
+                                    loadChat(chatId);
+                                    setShowUserMenu(false);
+                                  }}
+                                  className={`w-full text-left px-2 py-1.5 rounded text-xs ${
+                                    isActive
+                                      ? "bg-indigo-50 text-indigo-700"
+                                      : "hover:bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">
+                                      Chat #{chatId}
+                                    </span>
+                                    <span className="text-xs text-slate-400">
+                                      {chatMessages.length} msg
+                                    </span>
+                                  </div>
+                                  {lastMessage && (
+                                    <div className="truncate text-xs text-slate-500 mt-0.5">
+                                      {lastMessage.query.substring(0, 30)}...
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="border-t">
                       <button
                         onClick={() => {
                           handleSettings();
                           setShowUserMenu(false);
                         }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
                         Settings
@@ -993,7 +1089,7 @@ export function SalesDashboard() {
                           handleLogout();
                           setShowUserMenu(false);
                         }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
                         Logout
@@ -1031,13 +1127,15 @@ export function SalesDashboard() {
                     className="w-full text-base h-32 px-4 py-3 outline-none resize-none"
                     disabled={loading}
                   />
-                  
+
                   {/* Selected files display inside chat bubble */}
                   {selectedFiles.length > 0 && (
                     <div className="px-4 py-2 border-t border-slate-100 bg-slate-50">
                       <div className="flex items-center gap-2 mb-1">
                         <File className="w-3 h-3 text-slate-500" />
-                        <span className="text-xs text-slate-500">Selected files:</span>
+                        <span className="text-xs text-slate-500">
+                          Selected files:
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {selectedFiles.map((file) => (
@@ -1060,7 +1158,7 @@ export function SalesDashboard() {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between">
                     {/* Plus button for file selection */}
                     <button
@@ -1071,12 +1169,14 @@ export function SalesDashboard() {
                       <Plus className="w-5 h-5" />
                       <span className="text-sm">Select Files</span>
                     </button>
-                    
+
                     <div className="flex items-center gap-2">
                       {/* Send button inside chat bubble */}
                       <button
                         onClick={handleSendQuery}
-                        disabled={!query.trim() || selectedFiles.length === 0 || loading}
+                        disabled={
+                          !query.trim() || selectedFiles.length === 0 || loading
+                        }
                         className={`p-2 rounded-full transition-colors ${
                           query.trim() && selectedFiles.length > 0 && !loading
                             ? "bg-indigo-600 text-white hover:bg-indigo-700"
@@ -1112,7 +1212,7 @@ export function SalesDashboard() {
                     if (fileNames) {
                       // Remove .csv extension before sending for quick queries too
                       const cleanFileNames = selectedFiles
-                        .map(file => file.replace(/\.csv$/i, ''))
+                        .map((file) => file.replace(/\.csv$/i, ""))
                         .join(",");
                       fetchDashboardData(q, cleanFileNames);
                     }
@@ -1139,9 +1239,12 @@ export function SalesDashboard() {
                   if (fileNames) {
                     // Remove .csv extension before sending
                     const cleanFileNames = selectedFiles
-                      .map(file => file.replace(/\.csv$/i, ''))
+                      .map((file) => file.replace(/\.csv$/i, ""))
                       .join(",");
-                    fetchDashboardData("Plot a sales Dashboard", cleanFileNames);
+                    fetchDashboardData(
+                      "Plot a sales Dashboard",
+                      cleanFileNames,
+                    );
                   }
                 }}
               >
@@ -1166,9 +1269,12 @@ export function SalesDashboard() {
                   if (fileNames) {
                     // Remove .csv extension before sending
                     const cleanFileNames = selectedFiles
-                      .map(file => file.replace(/\.csv$/i, ''))
+                      .map((file) => file.replace(/\.csv$/i, ""))
                       .join(",");
-                    fetchDashboardData("Show me product performance", cleanFileNames);
+                    fetchDashboardData(
+                      "Show me product performance",
+                      cleanFileNames,
+                    );
                   }
                 }}
               >
@@ -1195,7 +1301,7 @@ export function SalesDashboard() {
                   if (fileNames) {
                     // Remove .csv extension before sending
                     const cleanFileNames = selectedFiles
-                      .map(file => file.replace(/\.csv$/i, ''))
+                      .map((file) => file.replace(/\.csv$/i, ""))
                       .join(",");
                     fetchDashboardData("Analyze branch sales", cleanFileNames);
                   }
@@ -1222,7 +1328,7 @@ export function SalesDashboard() {
         {/* File Selection Dialog */}
         {showFileDialog && (
           <>
-            <div 
+            <div
               className="fixed inset-0 bg-black/50 z-50"
               onClick={() => setShowFileDialog(false)}
             />
@@ -1232,7 +1338,9 @@ export function SalesDashboard() {
                   <div className="flex items-center gap-3">
                     <Database className="w-6 h-6 text-indigo-600" />
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-800">Select Data Sources</h3>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        Select Data Sources
+                      </h3>
                       <p className="text-sm text-slate-500">
                         Choose the data sources you want to analyze
                       </p>
@@ -1246,13 +1354,15 @@ export function SalesDashboard() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex-1 flex gap-6 p-6 overflow-hidden">
                 {/* Left side - Available files */}
                 <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
                   <div className="p-4 border-b">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-slate-800">Available Files</h4>
+                      <h4 className="font-semibold text-slate-800">
+                        Available Files
+                      </h4>
                       <Badge variant="secondary">
                         {uploadedFiles.length} available
                       </Badge>
@@ -1261,7 +1371,7 @@ export function SalesDashboard() {
                       Select files from your uploaded data
                     </p>
                   </div>
-                  
+
                   <div className="flex-1 overflow-auto p-4">
                     {uploadedFiles.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full py-12">
@@ -1292,7 +1402,9 @@ export function SalesDashboard() {
                                   <span className="text-xs text-slate-500">
                                     {formatFileSize(file.size)}
                                   </span>
-                                  <span className="text-xs text-slate-400">•</span>
+                                  <span className="text-xs text-slate-400">
+                                    •
+                                  </span>
                                   <span className="text-xs text-slate-500">
                                     {file.uploadedAt.toLocaleDateString()}
                                   </span>
@@ -1312,7 +1424,11 @@ export function SalesDashboard() {
                                     ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
                                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                                 }`}
-                                title={selectedFiles.includes(file.name) ? "Remove from selection" : "Add to selection"}
+                                title={
+                                  selectedFiles.includes(file.name)
+                                    ? "Remove from selection"
+                                    : "Add to selection"
+                                }
                               >
                                 {selectedFiles.includes(file.name) ? (
                                   <X className="w-4 h-4" />
@@ -1334,7 +1450,7 @@ export function SalesDashboard() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="p-4 border-t">
                     <button
                       onClick={() => {
@@ -1348,12 +1464,14 @@ export function SalesDashboard() {
                     </button>
                   </div>
                 </div>
-                
+
                 {/* Right side - Selected files */}
                 <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
                   <div className="p-4 border-b">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-slate-800">Selected Files</h4>
+                      <h4 className="font-semibold text-slate-800">
+                        Selected Files
+                      </h4>
                       {selectedFiles.length > 0 && (
                         <Badge variant="secondary">
                           {selectedFiles.length} selected
@@ -1364,7 +1482,7 @@ export function SalesDashboard() {
                       Files that will be used for analysis
                     </p>
                   </div>
-                  
+
                   <div className="flex-1 overflow-auto p-4">
                     {selectedFiles.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full py-12">
@@ -1379,7 +1497,9 @@ export function SalesDashboard() {
                     ) : (
                       <div className="space-y-2">
                         {selectedFiles.map((fileName) => {
-                          const file = uploadedFiles.find(f => f.name === fileName);
+                          const file = uploadedFiles.find(
+                            (f) => f.name === fileName,
+                          );
                           return (
                             <div
                               key={fileName}
@@ -1398,7 +1518,9 @@ export function SalesDashboard() {
                                       <span className="text-xs text-slate-500">
                                         {formatFileSize(file.size)}
                                       </span>
-                                      <span className="text-xs text-slate-400">•</span>
+                                      <span className="text-xs text-slate-400">
+                                        •
+                                      </span>
                                       <span className="text-xs text-slate-500">
                                         {file.uploadedAt.toLocaleDateString()}
                                       </span>
@@ -1419,7 +1541,7 @@ export function SalesDashboard() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="p-4 border-t">
                     {selectedFiles.length > 0 && (
                       <button
@@ -1432,7 +1554,7 @@ export function SalesDashboard() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-6 border-t flex-shrink-0 flex justify-end gap-3">
                 <Button
                   variant="outline"
@@ -1454,14 +1576,16 @@ export function SalesDashboard() {
         {/* File Upload Modal */}
         {showFileUploadModal && (
           <>
-            <div 
+            <div
               className="fixed inset-0 bg-black/50 z-50"
               onClick={() => setShowFileUploadModal(false)}
             />
             <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Upload New File</h3>
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Upload New File
+                  </h3>
                   <button
                     onClick={() => setShowFileUploadModal(false)}
                     className="p-1 hover:bg-slate-100 rounded-md"
@@ -1469,7 +1593,7 @@ export function SalesDashboard() {
                     <X className="w-5 h-5 text-slate-500" />
                   </button>
                 </div>
-                
+
                 <div className="space-y-4">
                   <input
                     ref={fileInputRef}
@@ -1479,16 +1603,21 @@ export function SalesDashboard() {
                     className="hidden"
                     multiple
                   />
-                  
+
                   {/* Upload success message */}
                   {uploadSuccess && recentlyUploadedFile ? (
                     <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
                       <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
                         <Check className="w-8 h-8 text-green-600" />
                       </div>
-                      <h4 className="text-lg font-semibold text-green-700 mb-2">Upload Successful!</h4>
+                      <h4 className="text-lg font-semibold text-green-700 mb-2">
+                        Upload Successful!
+                      </h4>
                       <p className="text-green-600 mb-1">
-                        File uploaded: <span className="font-medium">{recentlyUploadedFile}</span>
+                        File uploaded:{" "}
+                        <span className="font-medium">
+                          {recentlyUploadedFile}
+                        </span>
                       </p>
                       <p className="text-sm text-green-500">
                         Returning to file selection in 3 seconds...
@@ -1496,27 +1625,31 @@ export function SalesDashboard() {
                     </div>
                   ) : (
                     <>
-                      <div 
+                      <div
                         onClick={() => fileInputRef.current?.click()}
                         className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
                       >
                         <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                        <p className="text-slate-600 font-medium">Click to upload files</p>
+                        <p className="text-slate-600 font-medium">
+                          Click to upload files
+                        </p>
                         <p className="text-sm text-slate-500 mt-1">
                           Supported formats: CSV, Excel, JSON
                         </p>
                       </div>
-                      
+
                       {uploading && (
                         <div className="flex items-center justify-center">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                          <span className="ml-2 text-sm text-slate-600">Uploading...</span>
+                          <span className="ml-2 text-sm text-slate-600">
+                            Uploading...
+                          </span>
                         </div>
                       )}
                     </>
                   )}
                 </div>
-                
+
                 <div className="flex justify-end gap-2 mt-6">
                   <Button
                     variant="outline"
@@ -1559,26 +1692,112 @@ export function SalesDashboard() {
               >
                 <User className="w-4 h-4 text-indigo-600" />
                 <span className="text-sm font-medium text-slate-800">
-                  {userEmail.split('@')[0]} {/* Show only username */}
+                  {userEmail.split("@")[0]} {/* Show only username */}
                 </span>
-                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-3 h-3 text-slate-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
+                />
               </button>
-              
+
               {/* User dropdown menu */}
               {showUserMenu && (
                 <>
-                  <div 
+                  <div
                     className="fixed inset-0 z-40"
                     onClick={() => setShowUserMenu(false)}
                   />
-                  <div className="absolute left-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
-                    <div className="p-2">
+                  <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
+                    <div className="p-3 border-b">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4 text-indigo-600" />
+                        <span className="text-sm font-medium text-slate-800 truncate">
+                          {userEmail}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Chat ID: {currentChatId} | Message:{" "}
+                        {dashboardAPI.getFormattedMessageId()}
+                      </div>
+                    </div>
+
+                    <div className="max-h-64 overflow-y-auto">
+                      {/* Chat History */}
+                      <div className="p-2">
+                        <div className="flex items-center justify-between px-2 py-1">
+                          <span className="text-xs font-semibold text-slate-700">
+                            Chat Sessions
+                          </span>
+                          <button
+                            onClick={() => {
+                              startNewChat();
+                              setShowUserMenu(false);
+                            }}
+                            className="text-xs text-indigo-600 hover:text-indigo-700"
+                          >
+                            + New
+                          </button>
+                        </div>
+
+                        {chatHistory.length === 0 ? (
+                          <div className="px-2 py-3 text-center">
+                            <p className="text-xs text-slate-500">
+                              No chat history
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1">
+                            {/* Group by chat_id */}
+                            {Array.from(
+                              new Set(chatHistory.map((msg) => msg.chat_id)),
+                            ).map((chatId) => {
+                              const chatMessages = chatHistory.filter(
+                                (msg) => msg.chat_id === chatId,
+                              );
+                              const lastMessage =
+                                chatMessages[chatMessages.length - 1];
+                              const isActive = chatId === currentChatId;
+
+                              return (
+                                <button
+                                  key={chatId}
+                                  onClick={() => {
+                                    loadChat(chatId);
+                                    setShowUserMenu(false);
+                                  }}
+                                  className={`w-full text-left px-2 py-1.5 rounded text-xs ${
+                                    isActive
+                                      ? "bg-indigo-50 text-indigo-700"
+                                      : "hover:bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">
+                                      Chat #{chatId}
+                                    </span>
+                                    <span className="text-xs text-slate-400">
+                                      {chatMessages.length} msg
+                                    </span>
+                                  </div>
+                                  {lastMessage && (
+                                    <div className="truncate text-xs text-slate-500 mt-0.5">
+                                      {lastMessage.query.substring(0, 30)}...
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="border-t">
                       <button
                         onClick={() => {
                           handleSettings();
                           setShowUserMenu(false);
                         }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
                       >
                         <Settings className="w-4 h-4" />
                         Settings
@@ -1588,7 +1807,7 @@ export function SalesDashboard() {
                           handleLogout();
                           setShowUserMenu(false);
                         }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
                         Logout
@@ -1599,9 +1818,99 @@ export function SalesDashboard() {
               )}
             </div>
           )}
-        </div>
 
-        {/* REMOVED SETTINGS AND LOGOUT BUTTONS FROM HERE */}
+          {/* REMOVED SETTINGS AND LOGOUT BUTTONS FROM HERE */}
+        </div>
+      </div>
+
+      {/* Chat History Sidebar */}
+      <div className="fixed left-4 top-24 z-30">
+        <button
+          onClick={() => setShowChatHistory(!showChatHistory)}
+          className="p-2 bg-white rounded-lg shadow-md border hover:shadow-lg transition-shadow"
+          title="Chat History"
+        >
+          <FileText className="w-5 h-5 text-slate-600" />
+        </button>
+
+        {showChatHistory && (
+          <div className="absolute left-full ml-2 top-0 w-80 bg-white rounded-lg shadow-xl border max-h-[calc(100vh-8rem)] overflow-hidden">
+            <div className="p-4 border-b bg-slate-50">
+              <h3 className="font-semibold text-slate-800">Chat History</h3>
+              <p className="text-sm text-slate-500">
+                Current Chat ID: {currentChatId}
+              </p>
+            </div>
+
+            <div className="overflow-y-auto max-h-96 p-3">
+              {chatHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500">No chat history yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {chatHistory
+                    .filter((msg) => msg.chat_id === currentChatId)
+                    .map((message, index) => (
+                      <div
+                        key={index}
+                        className="p-3 bg-slate-50 rounded-lg border border-slate-200"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-xs font-medium text-slate-700">
+                            Message #{message.id}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            {message.timestamp.toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-800 mb-2">
+                          {message.query}
+                        </p>
+                        {message.files.length > 0 && (
+                          <div className="mb-2">
+                            <span className="text-xs text-slate-500">
+                              Files:
+                            </span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {message.files.map((file, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 bg-white text-xs rounded border border-slate-200"
+                                >
+                                  {file}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {message.response && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <span className="text-xs text-green-600 font-medium">
+                              ✓ Generated {message.response.kpis.length} KPIs
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 border-t bg-slate-50">
+              <button
+                onClick={() => startNewChat()}
+                className="w-full py-2 px-4 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                Start New Chat Session
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Query Input with Upload Button */}
@@ -1626,19 +1935,21 @@ export function SalesDashboard() {
                 className="w-full text-base h-32 px-4 py-3 outline-none resize-none"
                 disabled={loading}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSendQuery();
                   }
                 }}
               />
-              
+
               {/* Selected files display inside chat bubble */}
               {selectedFiles.length > 0 && (
                 <div className="px-4 py-2 border-t border-slate-100 bg-slate-50">
                   <div className="flex items-center gap-2 mb-1">
                     <File className="w-3 h-3 text-slate-500" />
-                    <span className="text-xs text-slate-500">Selected files:</span>
+                    <span className="text-xs text-slate-500">
+                      Selected files:
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {selectedFiles.map((file) => (
@@ -1661,7 +1972,7 @@ export function SalesDashboard() {
                   </div>
                 </div>
               )}
-              
+
               <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between">
                 {/* Plus button for file selection */}
                 <button
@@ -1672,12 +1983,14 @@ export function SalesDashboard() {
                   <Plus className="w-5 h-5" />
                   <span className="text-sm">Select Files</span>
                 </button>
-                
+
                 <div className="flex items-center gap-2">
                   {/* Send button inside chat bubble */}
                   <button
                     onClick={handleSendQuery}
-                    disabled={!query.trim() || selectedFiles.length === 0 || loading}
+                    disabled={
+                      !query.trim() || selectedFiles.length === 0 || loading
+                    }
                     className={`p-2 rounded-full transition-colors ${
                       query.trim() && selectedFiles.length > 0 && !loading
                         ? "bg-indigo-600 text-white hover:bg-indigo-700"
@@ -1713,7 +2026,7 @@ export function SalesDashboard() {
                 if (fileNames) {
                   // Remove .csv extension before sending for quick queries too
                   const cleanFileNames = selectedFiles
-                    .map(file => file.replace(/\.csv$/i, ''))
+                    .map((file) => file.replace(/\.csv$/i, ""))
                     .join(",");
                   fetchDashboardData(q, cleanFileNames);
                 }
@@ -2027,7 +2340,7 @@ export function SalesDashboard() {
       {/* File Selection Dialog */}
       {showFileDialog && (
         <>
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-50"
             onClick={() => setShowFileDialog(false)}
           />
@@ -2037,7 +2350,9 @@ export function SalesDashboard() {
                 <div className="flex items-center gap-3">
                   <Database className="w-6 h-6 text-indigo-600" />
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-800">Select Data Sources</h3>
+                    <h3 className="text-lg font-semibold text-slate-800">
+                      Select Data Sources
+                    </h3>
                     <p className="text-sm text-slate-500">
                       Choose the data sources you want to analyze
                     </p>
@@ -2051,39 +2366,156 @@ export function SalesDashboard() {
                 </button>
               </div>
             </div>
-            
+
             <div className="flex-1 flex gap-6 p-6 overflow-hidden">
               {/* Left side - Available files */}
               <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
                 <div className="p-4 border-b">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-slate-800">Available Files</h4>
+                    <h4 className="font-semibold text-slate-800">
+                      Available Files
+                    </h4>
                     <Badge variant="secondary">
                       {uploadedFiles.length} available
                     </Badge>
                   </div>
                   <p className="text-sm text-slate-500">
                     Select files from your uploaded data
-                    </p>
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-auto p-4">
+                  {uploadedFiles.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full py-12">
+                      <File className="w-12 h-12 text-slate-300 mb-3" />
+                      <p className="text-base text-slate-500 font-medium">
+                        No files available
+                      </p>
+                      <p className="text-sm text-slate-400 mt-1">
+                        Upload files to start analyzing data
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {uploadedFiles.map((file) => (
+                        <div
+                          key={file.name}
+                          className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="p-2 rounded-md bg-indigo-100">
+                              <File className="w-4 h-4 text-indigo-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate">
+                                {file.name}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-slate-500">
+                                  {formatFileSize(file.size)}
+                                </span>
+                                <span className="text-xs text-slate-400">
+                                  •
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  {file.uploadedAt.toLocaleDateString()}
+                                </span>
+                                {file.isExisting && (
+                                  <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                                    Existing
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => toggleFileSelection(file.name)}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                selectedFiles.includes(file.name)
+                                  ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              }`}
+                              title={
+                                selectedFiles.includes(file.name)
+                                  ? "Remove from selection"
+                                  : "Add to selection"
+                              }
+                            >
+                              {selectedFiles.includes(file.name) ? (
+                                <X className="w-4 h-4" />
+                              ) : (
+                                <Plus className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteFile(file.name)}
+                              disabled={deleteLoading}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                              title="Delete file"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t">
+                  <button
+                    onClick={() => {
+                      setShowFileDialog(false);
+                      setShowFileUploadModal(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span className="font-medium">Upload New File</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right side - Selected files */}
+              <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-slate-800">
+                      Selected Files
+                    </h4>
+                    {selectedFiles.length > 0 && (
+                      <Badge variant="secondary">
+                        {selectedFiles.length} selected
+                      </Badge>
+                    )}
                   </div>
-                  
-                  <div className="flex-1 overflow-auto p-4">
-                    {uploadedFiles.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full py-12">
-                        <File className="w-12 h-12 text-slate-300 mb-3" />
-                        <p className="text-base text-slate-500 font-medium">
-                          No files available
-                        </p>
-                        <p className="text-sm text-slate-400 mt-1">
-                          Upload files to start analyzing data
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {uploadedFiles.map((file) => (
+                  <p className="text-sm text-slate-500">
+                    Files that will be used for analysis
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-auto p-4">
+                  {selectedFiles.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full py-12">
+                      <File className="w-12 h-12 text-slate-300 mb-3" />
+                      <p className="text-base text-slate-500 font-medium">
+                        No files selected
+                      </p>
+                      <p className="text-sm text-slate-400 mt-1">
+                        Select files from the left panel
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedFiles.map((fileName) => {
+                        const file = uploadedFiles.find(
+                          (f) => f.name === fileName,
+                        );
+                        return (
                           <div
-                            key={file.name}
-                            className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+                            key={fileName}
+                            className="flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
                           >
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <div className="p-2 rounded-md bg-indigo-100">
@@ -2091,249 +2523,157 @@ export function SalesDashboard() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-slate-800 truncate">
-                                  {file.name}
+                                  {fileName}
                                 </p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-slate-500">
-                                    {formatFileSize(file.size)}
-                                  </span>
-                                  <span className="text-xs text-slate-400">•</span>
-                                  <span className="text-xs text-slate-500">
-                                    {file.uploadedAt.toLocaleDateString()}
-                                  </span>
-                                  {file.isExisting && (
-                                    <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
-                                      Existing
+                                {file && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-slate-500">
+                                      {formatFileSize(file.size)}
                                     </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => toggleFileSelection(file.name)}
-                                className={`p-1.5 rounded-md transition-colors ${
-                                  selectedFiles.includes(file.name)
-                                    ? "bg-indigo-100 text-indigo-600 hover:bg-indigo-200"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                                title={selectedFiles.includes(file.name) ? "Remove from selection" : "Add to selection"}
-                              >
-                                {selectedFiles.includes(file.name) ? (
-                                  <X className="w-4 h-4" />
-                                ) : (
-                                  <Plus className="w-4 h-4" />
+                                    <span className="text-xs text-slate-400">
+                                      •
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      {file.uploadedAt.toLocaleDateString()}
+                                    </span>
+                                  </div>
                                 )}
-                              </button>
-                              <button
-                                onClick={() => handleDeleteFile(file.name)}
-                                disabled={deleteLoading}
-                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
-                                title="Delete file"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4 border-t">
-                    <button
-                      onClick={() => {
-                        setShowFileDialog(false);
-                        setShowFileUploadModal(true);
-                      }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                    >
-                      <Upload className="w-5 h-5" />
-                      <span className="font-medium">Upload New File</span>
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Right side - Selected files */}
-                <div className="flex-1 flex flex-col border border-slate-200 rounded-lg bg-white">
-                  <div className="p-4 border-b">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold text-slate-800">Selected Files</h4>
-                      {selectedFiles.length > 0 && (
-                        <Badge variant="secondary">
-                          {selectedFiles.length} selected
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500">
-                      Files that will be used for analysis
-                    </p>
-                  </div>
-                  
-                  <div className="flex-1 overflow-auto p-4">
-                    {selectedFiles.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full py-12">
-                        <File className="w-12 h-12 text-slate-300 mb-3" />
-                        <p className="text-base text-slate-500 font-medium">
-                          No files selected
-                        </p>
-                        <p className="text-sm text-slate-400 mt-1">
-                          Select files from the left panel
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {selectedFiles.map((fileName) => {
-                          const file = uploadedFiles.find(f => f.name === fileName);
-                          return (
-                            <div
-                              key={fileName}
-                              className="flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
-                            >
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="p-2 rounded-md bg-indigo-100">
-                                  <File className="w-4 h-4 text-indigo-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-slate-800 truncate">
-                                    {fileName}
-                                  </p>
-                                  {file && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <span className="text-xs text-slate-500">
-                                        {formatFileSize(file.size)}
-                                      </span>
-                                      <span className="text-xs text-slate-400">•</span>
-                                      <span className="text-xs text-slate-500">
-                                        {file.uploadedAt.toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
                               </div>
-                              <button
-                                onClick={() => toggleFileSelection(fileName)}
-                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
-                                title="Remove file"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-4 border-t">
-                    {selectedFiles.length > 0 && (
-                      <button
-                        onClick={() => setSelectedFiles([])}
-                        className="w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
-                      >
-                        Clear All Selections
-                      </button>
-                    )}
-                  </div>
+                            <button
+                              onClick={() => toggleFileSelection(fileName)}
+                              className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"
+                              title="Remove file"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t">
+                  {selectedFiles.length > 0 && (
+                    <button
+                      onClick={() => setSelectedFiles([])}
+                      className="w-full px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                    >
+                      Clear All Selections
+                    </button>
+                  )}
                 </div>
               </div>
-              
-              <div className="p-6 border-t flex-shrink-0 flex justify-end gap-3">
+            </div>
+
+            <div className="p-6 border-t flex-shrink-0 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowFileDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => setShowFileDialog(false)}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* File Upload Modal */}
+      {showFileUploadModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-50"
+            onClick={() => setShowFileUploadModal(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-slate-800">
+                  Upload New File
+                </h3>
+                <button
+                  onClick={() => setShowFileUploadModal(false)}
+                  className="p-1 hover:bg-slate-100 rounded-md"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  multiple
+                />
+
+                {/* Upload success message */}
+                {uploadSuccess && recentlyUploadedFile ? (
+                  <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h4 className="text-lg font-semibold text-green-700 mb-2">
+                      Upload Successful!
+                    </h4>
+                    <p className="text-green-600 mb-1">
+                      File uploaded:{" "}
+                      <span className="font-medium">
+                        {recentlyUploadedFile}
+                      </span>
+                    </p>
+                    <p className="text-sm text-green-500">
+                      Returning to file selection in 3 seconds...
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+                    >
+                      <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+                      <p className="text-slate-600 font-medium">
+                        Click to upload files
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Supported formats: CSV, Excel, JSON
+                      </p>
+                    </div>
+
+                    {uploading && (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                        <span className="ml-2 text-sm text-slate-600">
+                          Uploading...
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
                 <Button
                   variant="outline"
-                  onClick={() => setShowFileDialog(false)}
+                  onClick={() => setShowFileUploadModal(false)}
                 >
                   Cancel
                 </Button>
-                <Button
-                  onClick={() => setShowFileDialog(false)}
-                  className="bg-indigo-600 hover:bg-indigo-700"
-                >
-                  Done
-                </Button>
               </div>
             </div>
-          </>
-        )}
-
-        {/* File Upload Modal */}
-        {showFileUploadModal && (
-          <>
-            <div 
-              className="fixed inset-0 bg-black/50 z-50"
-              onClick={() => setShowFileUploadModal(false)}
-            />
-            <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-slate-800">Upload New File</h3>
-                  <button
-                    onClick={() => setShowFileUploadModal(false)}
-                    className="p-1 hover:bg-slate-100 rounded-md"
-                  >
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
-                
-                <div className="space-y-4">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv,.json"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    multiple
-                  />
-                  
-                  {/* Upload success message */}
-                  {uploadSuccess && recentlyUploadedFile ? (
-                    <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
-                        <Check className="w-8 h-8 text-green-600" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-green-700 mb-2">Upload Successful!</h4>
-                      <p className="text-green-600 mb-1">
-                        File uploaded: <span className="font-medium">{recentlyUploadedFile}</span>
-                      </p>
-                      <p className="text-sm text-green-500">
-                        Returning to file selection in 3 seconds...
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
-                      >
-                        <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                        <p className="text-slate-600 font-medium">Click to upload files</p>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Supported formats: CSV, Excel, JSON
-                        </p>
-                      </div>
-                      
-                      {uploading && (
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                          <span className="ml-2 text-sm text-slate-600">Uploading...</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-                
-                <div className="flex justify-end gap-2 mt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowFileUploadModal(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

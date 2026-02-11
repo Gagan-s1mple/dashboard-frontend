@@ -11,6 +11,7 @@ import { Label } from "../ui/label";
 import Image from "next/image";
 import { useLoginStore } from "@/src/services/api/login/login-store";
 import { toast } from "sonner";
+import { ArrowRight, AlertCircle } from "lucide-react"; // Add icons for better UI
 
 export function LoginForm({
   className,
@@ -24,10 +25,12 @@ export function LoginForm({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSignupError, setIsSignupError] = useState(false); // Track if it's a signup error
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsSignupError(false);
 
     try {
       await login({ username, password });
@@ -40,11 +43,26 @@ export function LoginForm({
         router.push("/dashboard");
       }, 1500);
     } catch (err: any) {
-      toast.error(err.message || "Login failed", {
-        duration: 3000,
-      });
-      setError(err.message || "Login failed");
+      const errorMessage = err.message || "Login failed";
+      
+      // Check if it's the signup error
+      if (errorMessage.includes("Please sign up to create an account")) {
+        setIsSignupError(true);
+        toast.error("Account not found", {
+          description: "Please sign up to create an account",
+          duration: 4000,
+        });
+      } else {
+        toast.error(errorMessage, {
+          duration: 3000,
+        });
+      }
+      setError(errorMessage);
     }
+  };
+
+  const handleSignupRedirect = () => {
+    router.push("/signup");
   };
 
   return (
@@ -74,7 +92,27 @@ export function LoginForm({
                 </p>
               </div>
 
-              {error && (
+              {error && isSignupError && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-amber-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">Account not found</p>
+                      <p className="text-sm mt-1">It looks like you don&lsquo;t have an account yet. Would you like to create one?</p>
+                      <Button
+                        type="button"
+                        onClick={handleSignupRedirect}
+                        className="mt-3 h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-2"
+                      >
+                        Sign up now
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {error && !isSignupError && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm text-center">
                   {error}
                 </div>

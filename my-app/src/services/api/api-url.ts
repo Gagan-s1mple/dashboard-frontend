@@ -1,3 +1,3 @@
 export const url ={
-    backendUrl : "https://fzqtsm1r-8000.inc1.devtunnels.ms"
+    backendUrl : "http://192.168.1.110:8031"
 }

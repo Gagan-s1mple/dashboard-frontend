@@ -28,12 +28,9 @@ interface LoginState {
 export const useLoginStore = create<LoginState>((set, get) => ({
   loading: false,
   error: null,
-
-  // ❌ do NOT touch localStorage here
   token: null,
   email: null,
 
-  // ✅ Client-only hydration
   hydrate: () => {
     if (typeof window === "undefined") return;
 
@@ -53,11 +50,17 @@ export const useLoginStore = create<LoginState>((set, get) => ({
         body: JSON.stringify(payload),
       });
 
+      const responseText = await response.text();
+
       if (!response.ok) {
-        throw new Error(await response.text());
+        // Check if it's the specific "sign up" message
+        if (responseText.includes("Please sign up to create an account")) {
+          throw new Error("Please sign up to create an account.");
+        }
+        throw new Error(responseText || "Login failed");
       }
 
-      const data: LoginResponse = await response.json();
+      const data: LoginResponse = await JSON.parse(responseText);
 
       // ✅ safe: this runs only after user action (client)
       localStorage.setItem("auth_token", data.access_token);
