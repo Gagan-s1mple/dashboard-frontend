@@ -216,7 +216,6 @@ const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; ch
           });
         } else {
           canvas = await htmlToImage.toCanvas(chartRef.current, {
-            scale: 2,
             backgroundColor: '#ffffff',
             pixelRatio: 2,
           });
@@ -516,7 +515,6 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
     try {
       if (format === 'png') {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          scale: 2,
           backgroundColor: '#ffffff',
           pixelRatio: 2,
         });
@@ -526,7 +524,6 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
         toast.success('PNG downloaded successfully!');
       } else if (format === 'jpg') {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          scale: 2,
           backgroundColor: '#ffffff',
           pixelRatio: 2,
         });
@@ -536,7 +533,6 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
         toast.success('JPG downloaded successfully!');
       } else if (format === 'pdf') {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          scale: 2,
           backgroundColor: '#ffffff',
           pixelRatio: 2,
         });
@@ -555,7 +551,6 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
         await exportToHTML();
       } else if (format === 'print') {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          scale: 2,
           backgroundColor: '#ffffff',
           pixelRatio: 2,
         });

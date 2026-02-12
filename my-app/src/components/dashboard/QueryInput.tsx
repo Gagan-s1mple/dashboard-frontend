@@ -16,7 +16,7 @@ export function QueryInput() {
     e.preventDefault();
     if (!query.trim() || loading) return;
 
-    await fetchDashboardData(query.trim());
+    await fetchDashboardData(query.trim(), "");
     // Don't clear input so user can see what they asked
   };
 
@@ -28,7 +28,7 @@ export function QueryInput() {
 
   const handleQuickQuery = (quickQuery: string) => {
     setQuery(quickQuery);
-    fetchDashboardData(quickQuery);
+    fetchDashboardData(quickQuery, "");
   };
 
   return (
