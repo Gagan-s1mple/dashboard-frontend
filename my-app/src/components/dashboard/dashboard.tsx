@@ -4,6 +4,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 "use client";
+import DashboardShell from "@/src/app/dashboard/DashboardShell";
 
 import React, { useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
@@ -94,6 +95,7 @@ const SequentialLoader = () => {
   }, []);
 
   return (
+    
     <div className="flex flex-col items-center justify-center h-full space-y-2">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       <p className="text-slate-500 text-sm font-medium">{messages[step]}</p>
@@ -1364,6 +1366,7 @@ export function SalesDashboard() {
   };
 
   return (
+    <DashboardShell>
     <div className="h-full flex flex-col bg-white min-h-screen">
       <Toaster />
       
@@ -2049,5 +2052,6 @@ export function SalesDashboard() {
         </>
       )}
     </div>
+    </DashboardShell>
   );
 }
