@@ -10,9 +10,8 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import Image from "next/image";
 import { useLoginStore } from "@/src/services/api/login/login-store";
-import { useChatStore } from "@/src/services/api/chat/chat-store"; // ✅ ADDED
 import { toast } from "sonner";
-import { ArrowRight, AlertCircle } from "lucide-react"; // ✅ FIXED trailing comma
+import { ArrowRight, AlertCircle,Eye,EyeOff } from "lucide-react"; // Add icons for better UI
 
 export function LoginForm({
   className,
@@ -26,8 +25,8 @@ export function LoginForm({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isSignupError, setIsSignupError] = useState(false);
-
+  const [isSignupError, setIsSignupError] = useState(false); // Track if it's a signup error
+  const [showPassword, setShowPassword] = useState(false); 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -35,18 +34,6 @@ export function LoginForm({
 
     try {
       await login({ username, password });
-
-      // ✅ ADDED: Initialize chat store with error handling
-      try {
-        const { initializeOnLogin } = useChatStore.getState();
-        if (initializeOnLogin) {
-          await initializeOnLogin();
-          console.log("✅ Chat store initialized on login");
-        }
-      } catch (chatError) {
-        console.error("❌ Chat store initialization failed:", chatError);
-        // Continue with login even if chat store fails
-      }
 
       toast.success("Login successful! 🎉", {
         duration: 2000,
@@ -58,6 +45,7 @@ export function LoginForm({
     } catch (err: any) {
       const errorMessage = err.message || "Login failed";
       
+      // Check if it's the signup error
       if (errorMessage.includes("Please sign up to create an account")) {
         setIsSignupError(true);
         toast.error("Account not found", {
@@ -146,19 +134,31 @@ export function LoginForm({
                   <Label>Password</Label>
                   <a
                     href="/forgot-password"
-                    className="ml-auto text-xs text-gray-400 hover:text-gray-600 hover:underline cursor-pointer transition"
+                    className="ml-auto text-xs text-gray-800 hover:text-gray-600 hover:underline cursor-pointer transition"
                   >
                     Forgot?
                   </a>
                 </div>
-
+<div className="relative">
                 <Input
-                  type="password"
-                  value={password}
+                  type={showPassword ? "text" : "password"}
+                  value={(FormData as any).password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-xl"
+                  className="h-11 rounded-xl pr-10"
                   required
                 />
+                 <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+    >
+     {showPassword ? (
+        <EyeOff size={18} />
+      ) : (
+        <Eye size={18} />
+      )}
+    </button>
+              </div>
               </div>
 
               <Button

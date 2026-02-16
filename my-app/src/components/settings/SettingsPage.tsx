@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { ArrowLeft, Settings, Key, User, Shield, Bell, Globe,Wallet,ToggleLeft } from "lucide-react";
+import { ArrowLeft, Settings, Key, User, Shield, Bell, Globe,Wallet,ToggleLeft,BarChart,LineChart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {url} from "@/src/services/api/api-url";
@@ -20,9 +20,6 @@ import { Input } from "../ui/input";
 import ReactECharts from "echarts-for-react";
 
 
-
-
-
 export function SettingsPage() {
   const router = useRouter();
 
@@ -31,12 +28,27 @@ export function SettingsPage() {
   // const [totalTokens, setTotalTokens] = useState<number>(500);
   // const [remainingTokens, setRemainingTokens] = useState<number>(100);
 const [credits, setCredits] = useState(1);
-const [availableCredits, setAvailableCredits] = useState(500);
+const [availableCredits, setAvailableCredits] = useState<number|null>(null);
+const[loadingCredits, setLoadingCredits] = useState(true);
 const [loading, setLoading] = useState(false);
 
 
 const [showAnalytics, setShowAnalytics] = useState(false);
 const [chartType, setChartType] = useState<"bar" | "line">("bar");
+const [analyticsData, setAnalyticsData] = useState<
+  { date: string; usage: number }[]
+>([]);
+const [analyticsLoading, setAnalyticsLoading] = useState(false);
+const [rangeType, setRangeType] = useState<"month" | "year">("month");
+const [startDate, setStartDate] = useState("");
+const [endDate, setEndDate] = useState("");
+
+const [recentActivity, setRecentActivity] = useState<
+  { date: string; amount: number }[]
+>([]);
+const [currency, setCurrency] = useState<string | null>(null);
+const USD_TO_INR = 91.0;
+
 
 const [selectedFile] = useState("sales_data_2026.csv");
 
@@ -57,27 +69,54 @@ const [cleanOptions, setCleanOptions] = useState({
     // TODO: Fetch token info from backend when available
     // For now, using hardcoded values
   }, []);
+
+  useEffect(() => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("currency");
+    if (stored) {
+      setCurrency(stored);
+    }
+    console.log("Currency from LS:", stored);
+
+  }
+}, []);
+
+//price calculation
+const calculatePrice = (credits: number) => {
+  if (currency === "INR") {
+    return credits * USD_TO_INR;
+  }
+  return credits;
+};
+
+const price = calculatePrice(credits);   
+
 const purchaseCredits = async () => {
   if (credits < 1) return;
 
   setLoading(true);
 
+//create=order api call
   try {
     const orderResponse = await fetch(
       `${url.backendUrl}/payment/create-order`,
       
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" ,
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
         body: JSON.stringify({
           credits,
-          user_id: "current_user_id",
+          // user_id: "current_user_id",
+          currency: localStorage.getItem("currency"),
         }),
       }
     );
 console.log(url);
     const order = await orderResponse.json();
 
+//razorpay api key
     const options = {
       key: "rzp_test_SE0YAyn0Zv15Qy",
       amount: order.amount,
@@ -85,14 +124,16 @@ console.log(url);
       name: "ADRO",
       description: `Purchase ${credits} credits`,
       order_id: order.id,
-
+//verify payment api call
       handler: async function (response: any) {
         const verifyResponse = await fetch(
           `${url.backendUrl}/payment/verify-payment`,
-          
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+            },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -102,10 +143,10 @@ console.log(url);
         );
 
         const result = await verifyResponse.json();
+if (result.status === "success") {
+  await fetchCredits();
+}
 
-        if (result.status === "success") {
-          setAvailableCredits((prev) => prev + credits);
-        }
 
         setLoading(false);
       },
@@ -132,55 +173,154 @@ console.log(url);
     router.back();
   };
 
-  const getChartOption = () => {
-  if (chartType === "bar") {
-    return {
-      xAxis: {
-        type: "category",
-        data: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      },
-      yAxis: {
-        type: "value",
-      },
-      series: [
+
+const fetchCredits = async () => {
+    try {
+      const response = await fetch(
+        `${url.backendUrl}/api/fetch-credits`,
         {
-          data: [
-            120,
-            {
-              value: 200,
-              itemStyle: {
-                color: "#505372",
-              },
-            },
-            150,
-            80,
-            70,
-            110,
-            130,
-          ],
-          type: "bar",
-        },
-      ],
-    };
+          method: "GET",
+         headers: {
+            "Content-Type": "application/json",
+             Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch credits");
+      }
+
+      const data = await response.json();
+
+      setAvailableCredits(data.availableCredits);
+    } catch (error) {
+      console.error("Error fetching credits:", error);
+    } finally {
+      setLoadingCredits(false);
+    }
+  };
+console.log("availableCredits:", availableCredits);
+  // fetch available credits
+useEffect(() => {
+  fetchCredits();
+}, []);
+
+// analytics api 
+const fetchAnalytics = async () => {
+  if (rangeType === "month" && (!startDate || !endDate)) {
+    alert("Please select start and end date");
+    return;
   }
 
+  setAnalyticsLoading(true);
+
+  try {
+    let query = "";
+
+    if (rangeType === "year") {
+      const currentYear = new Date().getFullYear();
+      query = `?year=${currentYear}`;
+    } else {
+      query = `?start_date=${startDate}&end_date=${endDate}`;
+    }
+
+    const response = await fetch(
+      `${url.backendUrl}/api/credits-usage${query}`,
+      { method: "GET",
+       headers: {
+        "Content-Type": "application/json",
+         Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+      }, }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch analytics")
+    }
+//LOCALSTORAGE- CURRENCY 
+    const data = await response.json();
+
+
+
+
+// alert(currency); 
+
+
+const formattedData = Object.entries(data.daily_usage).map(
+  ([date, usage]) => ({
+    date,
+    usage: Number(usage),
+  })
+);
+
+setAnalyticsData(formattedData);
+
+  } catch (error) {
+    console.error("Analytics error:", error);
+  } finally {
+    setAnalyticsLoading(false);
+  }
+  console.log("fetchanalytics: button clicked");
+  console.log("FETCH FUNCTION TRIGGERED");
+};
+
+const getChartOption = () => {
+  const dates = analyticsData.map((item) => item.date);
+  const usage = analyticsData.map((item) => item.usage);
+
   return {
+    tooltip: {
+      trigger: "axis",
+    },
     xAxis: {
       type: "category",
-      data: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      data: dates,
     },
     yAxis: {
       type: "value",
     },
     series: [
       {
-        data: [820, 932, 901, 934, 1290, 1330, 1320],
-        type: "line",
-        smooth: true,
+        data: usage,
+        type: chartType,
+        smooth: chartType === "line",
       },
     ],
   };
 };
+// transaction history 
+const fetchTransactionHistory = async () => {
+  try {
+    const response = await fetch(
+      `${url.backendUrl}/api/transaction-history`,
+      {
+        method: "GET",
+        headers: {  "Content-Type": "application/json",
+         Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch transaction history");
+    }
+
+    const data = await response.json();
+
+    setRecentActivity(data.paymentHistory || []);
+
+  } catch (error) {
+    console.error("Transaction history error:", error);
+  }
+};
+console.log("recentActivity:", recentActivity);
+
+useEffect(() => {
+  fetchTransactionHistory();
+}, []);
+
+
+
 const handleCheckboxChange = (key: string) => {
   setCleanOptions((prev) => ({
     ...prev,
@@ -195,30 +335,35 @@ const handleCleanSubmit = () => {
   return (
     <>
     <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-    <div className=" p-6">
-      <div className="w-full h-fullmx-auto">
+    <div className=" p-4 md:p-6">
+      <div className="w-full h-full mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={handleBack}
-              variant="outline"
-              className="border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Settings className="w-6 h-6" />
-            Settings
-          </h1>
-        </div>
+       <div className="flex justify-end mb-8">
+  <div className="flex flex-col items-end gap-3">
+
+   
+
+    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+      <Settings className="w-6 h-6" />
+      Settings
+    </h1>
+   <Button
+      onClick={handleBack}
+      variant="outline"
+      className="border-slate-300 text-slate-700 hover:bg-slate-50"
+    >
+      <ArrowLeft className="w-4 h-4 mr-2" />
+      Back to Dashboard
+    </Button>
+
+  </div>
+</div>
 
         {/* Settings Cards */}
-        <div className=" w-150m h-150 flex gap-5 flex-wrap">
+       <div className="w-full flex flex-col md:flex-row gap-5 flex-wrap">
+
           {/* User Profile Card */}
-          <div className="w-100 h-110">
+          <div className="w-full md:w-[400px]">
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -230,18 +375,19 @@ const handleCleanSubmit = () => {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">Logged in as</p>
+                  {/* <p className="text-sm font-medium text-slate-600">Logged in as</p> */}
+                   <p className="text-lg font-semibold text-slate-800">Name-{userName}</p>
                   <p className="text-lg font-semibold text-slate-800">{userEmail}</p>
-                  <p className="text-lg font-semibold text-slate-800">{userName}</p>
+                 
                 </div>
-                <div className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
+                {/* <div className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
                   Active
-                </div>
+                </div> */}
               </div>
             </CardContent>
           </Card>
           {/* Data Cleaning Card */}
-<div className="w-100 mt-6">
+<div className="w-full mt-6">
   <Card className="shadow-sm rounded-2xl">
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -256,10 +402,10 @@ const handleCleanSubmit = () => {
 
       {/* Current File */}
       <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-        <p className="text-sm text-slate-500">Current File</p>
-        <p className="font-medium text-slate-800 mt-1">
+        <p className="text-sm text-slate-500">Choose  File to upload</p>
+        {/* <p className="font-medium text-slate-800 mt-1">
           {selectedFile}
-        </p>
+        </p> */}
       </div>
 
       {/* Cleaning Options */}
@@ -308,29 +454,23 @@ const handleCleanSubmit = () => {
         onClick={handleCleanSubmit}
         className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
       >
-        Apply Cleaning
+        feature coming soon.......
       </Button>
 
     </CardContent>
   </Card>
 </div>
-
-
-          </div>
+ </div>
 
           
 {/* {credits card} */}
-<div className="w-full max-w-4xl">
+<div className="w-full max-w-4xl mx-auto">
   <Card className="rounded-3xl border border-slate-200 shadow-xl bg-white overflow-hidden">
+    <CardContent className="pt-5 pb-8 px-4 md:px-8">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
 
-    {/* Top Accent */}
+
    
-
-    <CardContent className="pt-5 pb-8 px-8">
-
-      <div className="grid grid-cols-2 gap-10 items-start">
-
-        {/* LEFT SIDE – Credits Summary */}
         <div className="space-y-6">
           <div className="space-y-1">
   <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
@@ -344,69 +484,98 @@ const handleCleanSubmit = () => {
 </div>
 
 
-          <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-            <p className="text-sm text-slate-500">Available Credits</p>
-            <p className="text-5xl font-bold text-slate-900 mt-2">
-              {availableCredits}
-            </p>
-          </div>
+ <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 rounded-2xl p-3 shadow-sm hover:shadow-md transition-all duration-300">
+
+  <div className="flex items-center gap-2">
+    <Wallet className="w-4 h-4 text-slate-500" />
+    <p className="text-sm text-slate-500 font-medium tracking-wide">
+      Available Credits
+    </p>
+  </div>
+
+  <p className="text-3xl md:text-5xl font-extrabold text-slate-900 mt-3 tracking-tight">
+    {loadingCredits ? (
+      <span className="text-lg text-slate-400 animate-pulse">
+        Loading...
+      </span>
+    ) : (
+      availableCredits
+    )}
+  </p>
+
+  <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+    <span className="uppercase tracking-wide text-[10px] text-slate-600">
+      Currency
+    </span>
+    <span className="font-medium text-slate-700">
+      {currency}
+    </span>
+  </p>
+
+</div>
+
 <Dialog>
   <DialogTrigger asChild>
-    <Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-6 shadow-md">
+    <Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-4 shadow-md">
       Add Credits
     </Button>
   </DialogTrigger>
 
-  <DialogContent className="rounded-2xl max-w-md">
-    <DialogHeader>
-      <DialogTitle className="text-lg font-semibold">
-        Purchase Credits
-      </DialogTitle>
-    </DialogHeader>
+  <DialogContent className="rounded-2xl w-[65%] md:max-w-md">
 
-    <div className="space-y-6 mt-4">
+   <DialogHeader>
+  <DialogTitle className="text-lg font-semibold">
+    Purchase Credits
+  </DialogTitle>
+</DialogHeader>
+<div className="space-y-6 mt-4">
 
-      {/* Increment Field */}
-      <div className="flex items-center justify-between border rounded-xl px-4 py-3">
-        <Button
-          variant="ghost"
-          onClick={() => setCredits((prev) => Math.max(1, prev - 1))}
-          className="text-xl"
-        >
-          -
-        </Button>
+  {/* Credits Selector */}
+  <div className="flex items-center justify-center">
+    <Input
+      type="number"
+      min="1"
+      value={credits}
+      onChange={(e) => setCredits(Number(e.target.value))}
+      className="
+        text-center
+        border border-slate-200
+        bg-slate-50
+        text-xl font-bold
+        h-12 w-24
+        rounded-xl
+        shadow-sm
+        focus-visible:ring-2
+        focus-visible:ring-blue-400
+        focus-visible:border-blue-400
+        transition-all duration-200
+        appearance-none
+      "
+    />
+  </div>
 
-        <Input
-          type="number"
-          min="1"
-          value={credits}
-          onChange={(e) => setCredits(Number(e.target.value))}
-          className="text-center border-none focus-visible:ring-0 text-lg font-semibold"
-        />
+  {/* Purchase Section */}
+  <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
 
-        <Button
-          variant="ghost"
-          onClick={() => setCredits((prev) => prev + 1)}
-          className="text-xl"
-        >
-          +
-        </Button>
-      </div>
+    <Button
+      onClick={purchaseCredits}
+      disabled={loading}
+      className="bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white transition-all duration-200 rounded-lg px-5"
+    >
+      {loading ? "Processing..." : `Add ${credits}`}
+    </Button>
 
-      {/* Purchase Button */}
-      <Button
-        onClick={purchaseCredits}
-        disabled={loading}
-        className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-6 shadow-md"
-      >
-        {loading ? "Processing..." : `Purchase ₹${credits}`}
-      </Button>
+    <p className="text-sm text-slate-600 font-medium">
+      Approximately you pay- {currency === "INR" ? "₹" : "$"} {price}
+    </p>
 
-      <p className="text-xs text-slate-500 text-center">
-        Secure payment powered by Razorpay
-      </p>
+  </div>
 
-    </div>
+  <p className="text-xs text-slate-500 text-center">
+    Secure payment powered by Razorpay
+  </p>
+
+</div>
   </DialogContent>
 </Dialog>
 
@@ -415,28 +584,35 @@ const handleCleanSubmit = () => {
         {/* RIGHT SIDE – History + Analytics */}
         <div className="space-y-6">
 
-          <div>
-            <p className="text-sm font-semibold text-slate-800 mb-4">
-              Recent Activity
-            </p>
+         <div>
+  <p className="text-sm font-semibold text-slate-800 mb-4">
+    Recent Activity
+  </p>
 
-            <div className="space-y-4 text-sm text-slate-600">
-              <div className="flex justify-between border-b pb-2">
-                <span>Jan 24, 2026</span>
-                <span className="text-red-500 font-medium">-50</span>
-              </div>
+  <div className="space-y-4 text-sm text-slate-600">
+    {recentActivity.map((item, index) => (
+      <div
+        key={index}
+        className={`flex justify-between ${
+          index !== recentActivity.length - 1 ? "border-b pb-2" : ""
+        }`}
+      >
+        <span>
+          {new Date(item.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "2-digit",
+            year: "numeric",
+          })}
+        </span>
 
-              <div className="flex justify-between border-b pb-2">
-                <span>Feb 12, 2026</span>
-                <span className="text-red-500 font-medium">-400</span>
-              </div>
+        <span className="text-green-500 font-medium">
+          +{item.amount}
+        </span>
+      </div>
+    ))}
+  </div>
+</div>
 
-              <div className="flex justify-between">
-                <span>Mar 03, 2026</span>
-                <span className="text-red-500 font-medium">-120</span>
-              </div>
-            </div>
-          </div>
 
          <Button
   variant="outline"
@@ -454,10 +630,88 @@ const handleCleanSubmit = () => {
     </CardContent>
   </Card>
   {showAnalytics && (
-  <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg bg-white shadow-xl overflow-hidden h-120">
+ <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg bg-white shadow-xl overflow-hidden">
+
     <CardHeader className="flex flex-row items-center justify-between">
       <div>
+        <div className="px-3 py-3">
         <CardTitle>Usage Analytics</CardTitle>
+        </div>
+  <div className="flex flex-col md:flex-row md:items-end gap-4 mb-5 w-full">
+
+  {/* Range Type Select */}
+  <div className="w-full md:w-40">
+    <select
+      value={rangeType}
+      onChange={(e) => setRangeType(e.target.value as "month" | "year")}
+      className="
+        w-full
+        border border-slate-200
+        rounded-xl
+        px-4 py-2
+        text-sm
+        focus:outline-none
+        focus:ring-2 focus:ring-slate-300
+      "
+    >
+      <option value="month">Month</option>
+      <option value="year">Year</option>
+    </select>
+  </div>
+
+  {/* Date Range Inputs */}
+  {rangeType === "month" && (
+    <>
+      <div className="w-full md:w-auto">
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="
+            w-full
+            border border-slate-200
+            rounded-xl
+            px-4 py-2
+            text-sm
+            focus:outline-none
+            focus:ring-2 focus:ring-slate-300
+          "
+        />
+      </div>
+
+      <div className="w-full md:w-auto">
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="
+            w-full
+            border border-slate-200
+            rounded-xl
+            px-4 py-2
+            text-sm
+            focus:outline-none
+            focus:ring-2 focus:ring-slate-300
+          "
+        />
+      </div>
+    </>
+  )}
+
+  {/* Load Button */}
+  <div className="w-full md:w-auto">
+    <Button
+      type="button"
+      onClick={fetchAnalytics}
+      className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
+    >
+      Load Analytics
+    </Button>
+  </div>
+
+</div>
+
+
         <CardDescription>
           usage trends for your credit consumption
         </CardDescription>
@@ -470,14 +724,14 @@ const handleCleanSubmit = () => {
           variant={chartType === "bar" ? "default" : "outline"}
           onClick={() => setChartType("bar")}
         >
-          Bar
+          <BarChart className="w-4 h-4" />
         </Button>
         <Button
           size="sm"
           variant={chartType === "line" ? "default" : "outline"}
           onClick={() => setChartType("line")}
         >
-          Line
+          <LineChart className="w-4 h-4" />
         </Button>
       </div>
     </CardHeader>

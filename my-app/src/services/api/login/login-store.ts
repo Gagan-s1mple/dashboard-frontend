@@ -40,10 +40,13 @@ export const useLoginStore = create<LoginState>((set, get) => ({
 
     set({
       token: localStorage.getItem("auth_token"),
+      
       email: localStorage.getItem("user_email"),
       name: localStorage.getItem("user_name"),
     });
   },
+
+
 
   login: async (payload) => {
   try {
@@ -56,7 +59,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
     });
 
     const data = await response.json().catch(() => null);
-
+    console.log("Login response data:", data);
     if (!response.ok) {
       const message =
         data?.detail ||
@@ -74,6 +77,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
     localStorage.setItem("auth_token", data.access_token);
     localStorage.setItem("user_email", data.email || payload.username);
     localStorage.setItem("user_name", data.name);
+    localStorage.setItem("currency", data.currency);
 
     set({
       loading: false,

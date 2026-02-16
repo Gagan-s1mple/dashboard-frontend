@@ -25,6 +25,7 @@ export function SignupPage({
     name: "",
     email: "",
     phno: "",
+    countrycode:"+91",
     occupation: "",
   });
 
@@ -39,7 +40,15 @@ export function SignupPage({
     setError("");
 
     try {
-      await signup(formData);
+      const payload = {
+  ...formData,
+  phno: `${formData.countrycode}${formData.phno}`, 
+};
+
+delete (payload as any).countrycode;
+
+await signup(payload);
+
 
       toast.success("Account created successfully! 🎉", {
         duration: 2000,
@@ -116,6 +125,15 @@ export function SignupPage({
 
               <div className="grid gap-2">
                 <Label>Phone Number</Label>
+                <div className="flex items-center gap-2">
+                <select name="countrycode" 
+              
+              value={formData.countrycode} onChange={handleInputChange} className="h-11 w-20 px-2 rounded-xl border border-input bg-background text-sm">
+                <option value="+91">+91</option>
+                <option value="+1">+1</option>
+                <option value="+44">+44</option>
+                <option value="+61">+61</option>
+                </select>
                 <Input
                   name="phno"
                   placeholder="Enter your phone number"
@@ -124,6 +142,7 @@ export function SignupPage({
                   className="h-11 rounded-xl"
                   required
                 />
+              </div>
               </div>
 
               <div className="grid gap-2">
