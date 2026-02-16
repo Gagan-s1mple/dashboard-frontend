@@ -4,16 +4,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 "use client";
-import DashboardShell from "@/src/app/dashboard/DashboardShell";
 
 import React, { useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Toaster } from "../ui/sonner";
@@ -56,9 +50,7 @@ import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "framer-motion";
 
-import {
-  useDashboardStore,
-} from "@/src/services/api/dashboard/dashboard-api-store";
+import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
 
 import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
 import { useDeleteFileStore } from "@/src/services/api/dashboard/delete-store";
@@ -76,14 +68,20 @@ import {
 } from "../ui/table";
 import { ScrollArea } from "../ui/scroll-area";
 
+// ==================== IMPORT CHAT SIDEBAR ====================
+import { ChatSidebar } from "@/src/components/chat/ChatSidebar";
+
+// ==================== CHAT STORE ====================
+import { useChatStore } from "@/src/services/api/chat/chat-store";
+
 // ==================== SEQUENTIAL LOADER ====================
 
 const SequentialLoader = () => {
   const messages = [
-    'Preparing dashboard...',
-    'Loading data...',
-    'Almost there...',
-    'Please wait ⏳',
+    "Preparing dashboard...",
+    "Loading data...",
+    "Almost there...",
+    "Please wait ⏳",
   ];
   const [step, setStep] = React.useState(0);
 
@@ -95,7 +93,6 @@ const SequentialLoader = () => {
   }, []);
 
   return (
-    
     <div className="flex flex-col items-center justify-center h-full space-y-2">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       <p className="text-slate-500 text-sm font-medium">{messages[step]}</p>
@@ -137,27 +134,31 @@ const RotatingTextLoader = () => {
 
 // ==================== QUICK QUERIES COMPONENT ====================
 
-const QuickQueries = ({ onSelectQuery }: { onSelectQuery: (query: string) => void }) => {
+const QuickQueries = ({
+  onSelectQuery,
+}: {
+  onSelectQuery: (query: string) => void;
+}) => {
   const quickQueries = [
     {
       icon: <TrendingUp className="w-4 h-4" />,
       text: "Plot a sales Dashboard",
-      description: "Visualize sales trends and performance"
+      description: "Visualize sales trends and performance",
     },
     {
       icon: <BarChart className="w-4 h-4" />,
       text: "Show me product performance",
-      description: "Analyze top products and categories"
+      description: "Analyze top products and categories",
     },
     {
       icon: <FileText className="w-4 h-4" />,
       text: "Analyze branch sales",
-      description: "Compare sales across different branches"
+      description: "Compare sales across different branches",
     },
     {
       icon: <Calendar className="w-4 h-4" />,
       text: "Monthly revenue analysis",
-      description: "View revenue trends by month"
+      description: "View revenue trends by month",
     },
   ];
 
@@ -185,9 +186,15 @@ const QuickQueries = ({ onSelectQuery }: { onSelectQuery: (query: string) => voi
   );
 };
 
-// ==================== CHART DOWNLOAD BUTTON (FIXED WHITE BACKGROUND) ====================
+// ==================== CHART DOWNLOAD BUTTON ====================
 
-const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; chartTitle: string }) => {
+const ChartDownloadButton = ({
+  chartOption,
+  chartTitle,
+}: {
+  chartOption: any;
+  chartTitle: string;
+}) => {
   const [showMenu, setShowMenu] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -208,38 +215,38 @@ const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; ch
 
     try {
       let canvas;
-      
-      if (format === 'png' || format === 'jpg') {
+
+      if (format === "png" || format === "jpg") {
         if (echartRef.current && echartRef.current.getEchartsInstance) {
           const instance = echartRef.current.getEchartsInstance();
           canvas = instance.getRenderedCanvas({
-            backgroundColor: '#fff',
+            backgroundColor: "#fff",
             pixelRatio: 2,
           });
         } else {
           canvas = await htmlToImage.toCanvas(chartRef.current, {
-            backgroundColor: '#ffffff',
+            backgroundColor: "#ffffff",
             pixelRatio: 2,
           });
         }
 
-        if (format === 'png') {
-          const link = document.createElement('a');
-          link.download = `${chartTitle || 'chart'}.png`;
-          link.href = canvas.toDataURL('image/png');
+        if (format === "png") {
+          const link = document.createElement("a");
+          link.download = `${chartTitle || "chart"}.png`;
+          link.href = canvas.toDataURL("image/png");
           link.click();
-          toast.success('Chart downloaded as PNG');
-        } else if (format === 'jpg') {
-          const link = document.createElement('a');
-          link.download = `${chartTitle || 'chart'}.jpg`;
-          link.href = canvas.toDataURL('image/jpeg', 0.95);
+          toast.success("Chart downloaded as PNG");
+        } else if (format === "jpg") {
+          const link = document.createElement("a");
+          link.download = `${chartTitle || "chart"}.jpg`;
+          link.href = canvas.toDataURL("image/jpeg", 0.95);
           link.click();
-          toast.success('Chart downloaded as JPG');
+          toast.success("Chart downloaded as JPG");
         }
       }
     } catch (error) {
-      console.error('Failed to download chart:', error);
-      toast.error('Failed to download chart');
+      console.error("Failed to download chart:", error);
+      toast.error("Failed to download chart");
     }
 
     setShowMenu(false);
@@ -256,24 +263,24 @@ const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; ch
       >
         <DownloadCloud className="w-4 h-4" />
       </Button>
-      
+
       {showMenu && (
         <>
-          <div 
-            className="fixed inset-0 z-40" 
+          <div
+            className="fixed inset-0 z-40"
             onClick={() => setShowMenu(false)}
           />
           <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
             <div className="py-1">
               <button
-                onClick={() => downloadChart('png')}
+                onClick={() => downloadChart("png")}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <Image className="w-4 h-4" />
                 Download as PNG
               </button>
               <button
-                onClick={() => downloadChart('jpg')}
+                onClick={() => downloadChart("jpg")}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
               >
                 <Image className="w-4 h-4" />
@@ -283,8 +290,11 @@ const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; ch
           </div>
         </>
       )}
-      
-      <div ref={chartRef} className="absolute -left-[9999px] top-0 w-[800px] h-[400px] bg-white p-4">
+
+      <div
+        ref={chartRef}
+        className="absolute -left-[9999px] top-0 w-[800px] h-[400px] bg-white p-4"
+      >
         <ReactECharts
           ref={echartRef}
           option={chartOption}
@@ -296,7 +306,7 @@ const ChartDownloadButton = ({ chartOption, chartTitle }: { chartOption: any; ch
   );
 };
 
-// ==================== DASHBOARD CARD WITH EXPORT (UPDATED WITH MORE OPTIONS) ====================
+// ==================== DASHBOARD CARD WITH EXPORT ====================
 
 interface DashboardCardProps {
   dashboardData: any;
@@ -305,7 +315,12 @@ interface DashboardCardProps {
   showLoader?: boolean;
 }
 
-const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: DashboardCardProps) => {
+const DashboardCard = ({
+  dashboardData,
+  timestamp,
+  cardRef,
+  showLoader,
+}: DashboardCardProps) => {
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const dashboardCardRef = useRef<HTMLDivElement>(null);
@@ -328,10 +343,13 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
     }
 
     return (
-      <Card key={index} className="shadow-sm chart-container relative group">
+      <Card key={`chart-${chartTitle}-${index}`} className="shadow-sm chart-container relative group">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">{chartTitle}</CardTitle>
-          <ChartDownloadButton chartOption={fixedChartOption} chartTitle={chartTitle} />
+          <ChartDownloadButton
+            chartOption={fixedChartOption}
+            chartTitle={chartTitle}
+          />
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -347,25 +365,38 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
   };
 
   const renderKPICard = (kpi: any, index: number) => {
-    let badgeVariant: "secondary" | "outline" | "default" | "destructive" = "secondary";
+    // Safety check for kpi and title
+    if (!kpi || !kpi.title) {
+      return null;
+    }
+
+    let badgeVariant: "secondary" | "outline" | "default" | "destructive" =
+      "secondary";
     let badgeIcon = "📊";
 
     if (kpi.title.includes("Sales") || kpi.title.includes("Revenue")) {
       badgeVariant = "secondary";
       badgeIcon = "₹";
-    } else if (kpi.title.includes("Transaction") || kpi.title.includes("Count")) {
+    } else if (
+      kpi.title.includes("Transaction") ||
+      kpi.title.includes("Count")
+    ) {
       badgeVariant = "outline";
       badgeIcon = "#";
     } else if (kpi.title.includes("Rating") || kpi.title.includes("Score")) {
       badgeVariant = "default";
       badgeIcon = "⭐";
-    } else if (kpi.title.includes("Profit") || kpi.title.includes("Income") || kpi.title.includes("Margin")) {
+    } else if (
+      kpi.title.includes("Profit") ||
+      kpi.title.includes("Income") ||
+      kpi.title.includes("Margin")
+    ) {
       badgeVariant = "destructive";
       badgeIcon = "💰";
     }
 
     return (
-      <Card key={index} className="shadow-sm">
+      <Card key={`kpi-${kpi.title}-${index}`} className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-slate-600">
             {kpi.title}
@@ -395,55 +426,55 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
   const exportToExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
-      
+
       if (dashboardData.kpis && dashboardData.kpis.length > 0) {
         const kpiData = dashboardData.kpis.map((kpi: any) => ({
-          'Metric': kpi.title,
-          'Value': kpi.value,
-          'Description': kpi.description || ''
+          Metric: kpi.title,
+          Value: kpi.value,
+          Description: kpi.description || "",
         }));
         const kpiWs = XLSX.utils.json_to_sheet(kpiData);
-        XLSX.utils.book_append_sheet(wb, kpiWs, 'KPIs');
+        XLSX.utils.book_append_sheet(wb, kpiWs, "KPIs");
       }
-      
+
       if (dashboardData.charts && dashboardData.charts.length > 0) {
         const chartData: any[] = [];
         dashboardData.charts.forEach((chart: any, idx: number) => {
           const chartTitle = chart.title?.text || `Chart ${idx + 1}`;
-          
+
           if (chart.series && chart.series.length > 0) {
             chart.series.forEach((series: any) => {
               if (series.data && Array.isArray(series.data)) {
                 series.data.forEach((item: any, dataIdx: number) => {
                   chartData.push({
-                    'Chart': chartTitle,
-                    'Series': series.name || `Series ${dataIdx + 1}`,
-                    'Category': item.name || `Item ${dataIdx + 1}`,
-                    'Value': item.value || item
+                    Chart: chartTitle,
+                    Series: series.name || `Series ${dataIdx + 1}`,
+                    Category: item.name || `Item ${dataIdx + 1}`,
+                    Value: item.value || item,
                   });
                 });
               }
             });
           }
         });
-        
+
         if (chartData.length > 0) {
           const chartWs = XLSX.utils.json_to_sheet(chartData);
-          XLSX.utils.book_append_sheet(wb, chartWs, 'Chart Data');
+          XLSX.utils.book_append_sheet(wb, chartWs, "Chart Data");
         }
       }
-      
+
       XLSX.writeFile(wb, `dashboard-${Date.now()}.xlsx`);
-      toast.success('Excel file downloaded successfully!');
+      toast.success("Excel file downloaded successfully!");
     } catch (error) {
-      console.error('Excel export failed:', error);
-      toast.error('Failed to export as Excel');
+      console.error("Excel export failed:", error);
+      toast.error("Failed to export as Excel");
     }
   };
 
   const exportToHTML = async () => {
     if (!dashboardCardRef.current) return;
-    
+
     try {
       const dashboardHTML = dashboardCardRef.current.outerHTML;
       const fullHTML = `
@@ -498,66 +529,66 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
         </body>
         </html>
       `;
-      
-      const blob = new Blob([fullHTML], { type: 'text/html' });
+
+      const blob = new Blob([fullHTML], { type: "text/html" });
       downloadFile(blob, `dashboard-${Date.now()}.html`);
-      toast.success('HTML file downloaded successfully!');
+      toast.success("HTML file downloaded successfully!");
     } catch (error) {
-      console.error('HTML export failed:', error);
-      toast.error('Failed to export as HTML');
+      console.error("HTML export failed:", error);
+      toast.error("Failed to export as HTML");
     }
   };
 
   const handleDownload = async (format: string) => {
     if (!dashboardCardRef.current) return;
-    
+
     setIsExporting(true);
     setShowDownloadMenu(false);
-    
+
     try {
-      if (format === 'png') {
+      if (format === "png") {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           pixelRatio: 2,
         });
-        const image = canvas.toDataURL('image/png');
+        const image = canvas.toDataURL("image/png");
         const blob = await (await fetch(image)).blob();
         downloadFile(blob, `dashboard-${Date.now()}.png`);
-        toast.success('PNG downloaded successfully!');
-      } else if (format === 'jpg') {
+        toast.success("PNG downloaded successfully!");
+      } else if (format === "jpg") {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           pixelRatio: 2,
         });
-        const image = canvas.toDataURL('image/jpeg', 0.95);
+        const image = canvas.toDataURL("image/jpeg", 0.95);
         const blob = await (await fetch(image)).blob();
         downloadFile(blob, `dashboard-${Date.now()}.jpg`);
-        toast.success('JPG downloaded successfully!');
-      } else if (format === 'pdf') {
+        toast.success("JPG downloaded successfully!");
+      } else if (format === "pdf") {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           pixelRatio: 2,
         });
-        const image = canvas.toDataURL('image/png');
+        const image = canvas.toDataURL("image/png");
         const pdf = new jsPDF({
-          orientation: 'landscape',
-          unit: 'px',
-          format: [canvas.width, canvas.height]
+          orientation: "landscape",
+          unit: "px",
+          format: [canvas.width, canvas.height],
         });
-        pdf.addImage(image, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.addImage(image, "PNG", 0, 0, canvas.width, canvas.height);
         pdf.save(`dashboard-${Date.now()}.pdf`);
-        toast.success('PDF downloaded successfully!');
-      } else if (format === 'excel') {
+        toast.success("PDF downloaded successfully!");
+      } else if (format === "excel") {
         exportToExcel();
-      } else if (format === 'html') {
+      } else if (format === "html") {
         await exportToHTML();
-      } else if (format === 'print') {
+      } else if (format === "print") {
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           pixelRatio: 2,
         });
-        const image = canvas.toDataURL('image/png');
-        const printWindow = window.open('', '_blank');
+        const image = canvas.toDataURL("image/png");
+        const printWindow = window.open("", "_blank");
         if (printWindow) {
           printWindow.document.write(`
             <!DOCTYPE html>
@@ -579,8 +610,8 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
         }
       }
     } catch (error) {
-      console.error('Export failed:', error);
-      toast.error('Failed to export. Please try again.');
+      console.error("Export failed:", error);
+      toast.error("Failed to export. Please try again.");
     } finally {
       setIsExporting(false);
     }
@@ -608,7 +639,7 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
                 {timestamp.toLocaleDateString()}
               </Badge>
             )}
-            
+
             <div className="relative">
               <Button
                 onClick={() => setShowDownloadMenu(!showDownloadMenu)}
@@ -627,99 +658,129 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
                   </>
                 )}
               </Button>
-              
+
               {showDownloadMenu && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
+                  <div
+                    className="fixed inset-0 z-40"
                     onClick={() => setShowDownloadMenu(false)}
                   />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
                     <div className="p-2">
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">IMAGE</div>
+                      <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">
+                        IMAGE
+                      </div>
                       <button
-                        onClick={() => handleDownload('png')}
+                        onClick={() => handleDownload("png")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
                           <Image className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">PNG</div>
-                          <div className="text-xs text-slate-500">High quality image</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            PNG
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            High quality image
+                          </div>
                         </div>
                       </button>
-                      
+
                       <button
-                        onClick={() => handleDownload('jpg')}
+                        onClick={() => handleDownload("jpg")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
                           <Image className="w-4 h-4 text-blue-600" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">JPG</div>
-                          <div className="text-xs text-slate-500">Compressed image</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            JPG
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Compressed image
+                          </div>
                         </div>
                       </button>
-                      
+
                       <div className="h-px bg-slate-200 my-2"></div>
-                      
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">DOCUMENT</div>
+
+                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
+                        DOCUMENT
+                      </div>
                       <button
-                        onClick={() => handleDownload('pdf')}
+                        onClick={() => handleDownload("pdf")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-red-100 rounded-lg mr-3">
                           <FileText className="w-4 h-4 text-red-600" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">PDF</div>
-                          <div className="text-xs text-slate-500">Professional document</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            PDF
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Professional document
+                          </div>
                         </div>
                       </button>
-                      
+
                       <button
-                        onClick={() => handleDownload('html')}
+                        onClick={() => handleDownload("html")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-orange-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-orange-100 rounded-lg mr-3">
                           <FileJson className="w-4 h-4 text-orange-600" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">HTML</div>
-                          <div className="text-xs text-slate-500">Web page format</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            HTML
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Web page format
+                          </div>
                         </div>
                       </button>
-                      
+
                       <div className="h-px bg-slate-200 my-2"></div>
-                      
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">DATA</div>
+
+                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
+                        DATA
+                      </div>
                       <button
-                        onClick={() => handleDownload('excel')}
+                        onClick={() => handleDownload("excel")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-green-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-green-100 rounded-lg mr-3">
                           <FileSpreadsheet className="w-4 h-4 text-green-600" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">Excel</div>
-                          <div className="text-xs text-slate-500">Spreadsheet data</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            Excel
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Spreadsheet data
+                          </div>
                         </div>
                       </button>
-                      
+
                       <div className="h-px bg-slate-200 my-2"></div>
-                      
+
                       <button
-                        onClick={() => handleDownload('print')}
+                        onClick={() => handleDownload("print")}
                         className="flex items-center w-full px-4 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
                       >
                         <div className="p-1.5 bg-gray-100 rounded-lg mr-3">
                           <Printer className="w-4 h-4 text-gray-700" />
                         </div>
                         <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">Print</div>
-                          <div className="text-xs text-slate-500">Send to printer</div>
+                          <div className="text-sm font-medium text-slate-800">
+                            Print
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Send to printer
+                          </div>
                         </div>
                       </button>
                     </div>
@@ -745,7 +806,9 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
                   Key Performance Indicators
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {dashboardData.kpis.map((kpi: any, i: number) => renderKPICard(kpi, i))}
+                  {dashboardData.kpis.map((kpi: any, i: number) =>
+                    renderKPICard(kpi, i),
+                  )}
                 </div>
               </div>
             )}
@@ -757,25 +820,27 @@ const DashboardCard = ({ dashboardData, timestamp, cardRef, showLoader }: Dashbo
                   Visualizations
                 </h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {dashboardData.charts.map((chart: any, i: number) => renderChart(chart, i))}
+                  {dashboardData.charts.map((chart: any, i: number) =>
+                    renderChart(chart, i),
+                  )}
                 </div>
               </div>
             )}
 
-            {(!dashboardData.kpis || dashboardData.kpis.length === 0) && 
-             (!dashboardData.charts || dashboardData.charts.length === 0) && (
-              <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-                <div className="p-4 rounded-full bg-slate-200 mb-4">
-                  <BarChart className="w-12 h-12" />
+            {(!dashboardData.kpis || dashboardData.kpis.length === 0) &&
+              (!dashboardData.charts || dashboardData.charts.length === 0) && (
+                <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
+                  <div className="p-4 rounded-full bg-slate-200 mb-4">
+                    <BarChart className="w-12 h-12" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600 mb-1">
+                    No Dashboard Data Available
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Generate a dashboard to see all components
+                  </p>
                 </div>
-                <p className="text-sm font-semibold text-slate-600 mb-1">
-                  No Dashboard Data Available
-                </p>
-                <p className="text-xs text-slate-500">
-                  Generate a dashboard to see all components
-                </p>
-              </div>
-            )}
+              )}
           </div>
         ) : (
           <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
@@ -823,7 +888,13 @@ interface Message {
 
 // ==================== NAVIGATION BAR COMPONENT ====================
 
-const NavigationBar = ({ userEmail, showUserMenu, setShowUserMenu, handleLogout, handleSettings }: any) => {
+const NavigationBar = ({
+  userEmail,
+  showUserMenu,
+  setShowUserMenu,
+  handleLogout,
+  handleSettings,
+}: any) => {
   return (
     <div className="border-b bg-white p-4 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-3">
@@ -891,9 +962,9 @@ const NavigationBar = ({ userEmail, showUserMenu, setShowUserMenu, handleLogout,
   );
 };
 
-// ==================== MAIN COMPONENT ====================
+// ==================== MAIN DASHBOARD CONTENT ====================
 
-export function SalesDashboard() {
+const DashboardContent = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -901,13 +972,13 @@ export function SalesDashboard() {
   const toastShownRef = useRef<string | null>(null);
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [userEmail, setUserEmail] = useState<string>("");
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
-  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<string | null>(null);
+  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<
+    string | null
+  >(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [availableFiles, setAvailableFiles] = useState<DatabaseFile[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -932,6 +1003,33 @@ export function SalesDashboard() {
   const { deleteFile } = useDeleteFileStore();
   const router = useRouter();
 
+  // ===== CHAT STORE INTEGRATION =====
+  const {
+    currentChatMessages,
+    currentDashboardData,
+    isLoadingHistory,
+    addUserMessage,
+    addAssistantMessage,
+  } = useChatStore();
+
+  // ✅ FIX: Sync messages from chat store
+  useEffect(() => {
+    if (currentChatMessages && currentChatMessages.length > 0) {
+      const convertedMessages: Message[] = currentChatMessages.map((msg) => ({
+        id: msg.id,
+        type: msg.role === "user" ? "user" : "bot",
+        content: msg.content,
+        timestamp: msg.timestamp,
+        files: msg.files,
+        dashboardData: msg.response,
+        visualRendered: msg.role === "assistant" && !!msg.response,
+      }));
+      setMessages(convertedMessages);
+    } else {
+      setMessages([]);
+    }
+  }, [currentChatMessages]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -942,27 +1040,54 @@ export function SalesDashboard() {
     loadExistingFiles();
   }, []);
 
-  useEffect(() => {
-    if (hasData && dashboardData && isLoading && pendingQuery) {
-      console.log("✅ Dashboard data is ready! Adding bot message with data:", dashboardData);
+// ✅ FIX: Handle dashboard data ready - with better duplicate prevention
+useEffect(() => {
+  if (hasData && dashboardData && isLoading && pendingQuery) {
+    console.log(
+      "✅ Dashboard data is ready! Adding bot message with data:",
+      dashboardData,
+    );
+
+    // Better duplicate check: look at recent bot messages (last 30 seconds)
+    const now = new Date().getTime();
+    const recentBotMessages = messages.filter(
+      msg => msg.type === "bot" && 
+      (now - msg.timestamp.getTime()) < 30000 // last 30 seconds
+    );
+    
+    // Check if there's already a bot message for this pending query
+    const hasExistingBotMessage = recentBotMessages.some(
+      msg => msg.content.includes("Dashboard generated") || 
+             msg.content.includes(pendingQuery)
+    );
+
+    if (!hasExistingBotMessage) {
+      // Get current message ID from dashboard store for logging
+      const currentMessageId = useDashboardStore.getState().currentMessageId;
       
-      const botMessageId = (Date.now() + 1).toString();
-      const botMessage: Message = {
-        id: botMessageId,
-        type: "bot",
-        content: "Dashboard generated successfully! ✨",
-        timestamp: new Date(),
-        dashboardData: dashboardData,
-        visualRendered: true,
-      };
+      addAssistantMessage(
+        "Dashboard generated successfully! ✨",
+        dashboardData,
+      );
       
-      setMessages((prev) => [...prev, botMessage]);
-      setPendingQuery(null);
-      setIsLoading(false);
-      toast.success("Dashboard ready!");
-      toastShownRef.current = null;
+      console.log("✅ Bot message added with message ID:", currentMessageId);
+    } else {
+      console.log("⏭️ Skipping duplicate bot message");
     }
-  }, [hasData, dashboardData, isLoading, pendingQuery]);
+
+    setPendingQuery(null);
+    setIsLoading(false);
+    toast.success("Dashboard ready!");
+    toastShownRef.current = null;
+  }
+}, [
+  hasData,
+  dashboardData,
+  isLoading,
+  pendingQuery,
+  addAssistantMessage,
+  messages,
+]);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -1002,16 +1127,23 @@ export function SalesDashboard() {
     async function loadDataSources() {
       try {
         const data = await fetchDataSources();
-        const filesWithIcons = Array.isArray(data) ? data.map((ds: any) => {
-          const fileName = typeof ds === 'string' ? ds : ds.name || 'Unknown';
-          return {
-            id: fileName,
-            name: fileName,
-            icon: fileName.endsWith('.csv') ? '📄' : 
-                  fileName.endsWith('.xlsx') ? '📊' : 
-                  fileName.endsWith('.json') ? '📋' : '📁',
-          };
-        }) : [];
+        const filesWithIcons = Array.isArray(data)
+          ? data.map((ds: any) => {
+              const fileName =
+                typeof ds === "string" ? ds : ds.name || "Unknown";
+              return {
+                id: fileName,
+                name: fileName,
+                icon: fileName.endsWith(".csv")
+                  ? "📄"
+                  : fileName.endsWith(".xlsx")
+                    ? "📊"
+                    : fileName.endsWith(".json")
+                      ? "📋"
+                      : "📁",
+              };
+            })
+          : [];
         setAvailableFiles(filesWithIcons);
       } catch (error) {
         console.error("Failed to load data sources:", error);
@@ -1019,6 +1151,9 @@ export function SalesDashboard() {
     }
     loadDataSources();
   }, [uploadedFiles]);
+
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const loadExistingFiles = async () => {
     try {
@@ -1041,7 +1176,8 @@ export function SalesDashboard() {
         }
 
         return {
-          name: file.name || file.filename || file.originalname || "Unknown file",
+          name:
+            file.name || file.filename || file.originalname || "Unknown file",
           size: file.size || file.fileSize || 0,
           type:
             file.type ||
@@ -1056,16 +1192,19 @@ export function SalesDashboard() {
       });
 
       setUploadedFiles(formattedFiles);
-      
+
       const filesWithIcons = formattedFiles.map((file) => ({
         id: file.name,
         name: file.name,
-        icon: file.name.endsWith('.csv') ? '📄' : 
-              file.name.endsWith('.xlsx') ? '📊' : 
-              file.name.endsWith('.json') ? '📋' : '📁',
+        icon: file.name.endsWith(".csv")
+          ? "📄"
+          : file.name.endsWith(".xlsx")
+            ? "📊"
+            : file.name.endsWith(".json")
+              ? "📋"
+              : "📁",
       }));
       setAvailableFiles(filesWithIcons);
-      
     } catch (error: any) {
       console.error("Failed to load existing files:", error);
     }
@@ -1075,11 +1214,16 @@ export function SalesDashboard() {
     if (!filename) return "application/octet-stream";
     const ext = filename.split(".").pop()?.toLowerCase();
     switch (ext) {
-      case "csv": return "text/csv";
-      case "xlsx": return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-      case "xls": return "application/vnd.ms-excel";
-      case "json": return "application/json";
-      default: return "application/octet-stream";
+      case "csv":
+        return "text/csv";
+      case "xlsx":
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      case "xls":
+        return "application/vnd.ms-excel";
+      case "json":
+        return "application/json";
+      default:
+        return "application/octet-stream";
     }
   };
 
@@ -1125,7 +1269,9 @@ export function SalesDashboard() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -1137,29 +1283,33 @@ export function SalesDashboard() {
 
     try {
       await uploadAndGenerate(userEmail, Array.from(files));
-      
+
       const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
         name: file.name,
         size: file.size,
         type: file.type,
         uploadedAt: new Date(),
       }));
-      
+
       setUploadedFiles((prev) => [...prev, ...newFiles]);
-      
+
       const newAvailableFiles = Array.from(files).map((file) => ({
         id: file.name,
         name: file.name,
-        icon: file.name.endsWith('.csv') ? '📄' : 
-              file.name.endsWith('.xlsx') ? '📊' : 
-              file.name.endsWith('.json') ? '📋' : '📁',
+        icon: file.name.endsWith(".csv")
+          ? "📄"
+          : file.name.endsWith(".xlsx")
+            ? "📊"
+            : file.name.endsWith(".json")
+              ? "📋"
+              : "📁",
       }));
-      
+
       setAvailableFiles((prev) => [...prev, ...newAvailableFiles]);
-      
-      const fileNames = Array.from(files).map(f => f.name);
+
+      const fileNames = Array.from(files).map((f) => f.name);
       setSelectedFiles((prev) => [...prev, ...fileNames]);
-      
+
       setRecentlyUploadedFile(files[0].name);
       setUploadSuccess(true);
       toast.success(`Uploaded ${files.length} file(s) successfully!`);
@@ -1169,11 +1319,10 @@ export function SalesDashboard() {
         setRecentlyUploadedFile(null);
         setUploadSuccess(false);
       }, 3000);
-      
     } catch (error) {
       toast.error("Upload failed. Please try again.");
     }
-    
+
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1209,7 +1358,7 @@ export function SalesDashboard() {
 
   const handleQuickQuery = (query: string) => {
     setInputValue(query);
-    
+
     if (selectedFiles.length === 0) {
       if (!hasShownNoFileToast) {
         toast.warning("Please select files before sending a query");
@@ -1218,67 +1367,70 @@ export function SalesDashboard() {
       }
       return;
     }
-    
+
     setTimeout(() => {
       handleSendMessageWithQuery(query);
     }, 100);
   };
 
   const handleSendMessageWithQuery = async (queryText: string) => {
-    if (!queryText.trim()) {
-      toast.error("Please enter a query");
-      return;
+  if (!queryText.trim()) {
+    toast.error("Please enter a query");
+    return;
+  }
+
+  const fileNames = getFileNames();
+  if (!fileNames) {
+    if (!hasShownNoFileToast) {
+      toast.warning("Please select files before sending a query");
+      setHasShownNoFileToast(true);
+      setTimeout(() => setHasShownNoFileToast(false), 2000);
     }
+    return;
+  }
 
-    const fileNames = getFileNames();
-    if (!fileNames) {
-      if (!hasShownNoFileToast) {
-        toast.warning("Please select files before sending a query");
-        setHasShownNoFileToast(true);
-        setTimeout(() => setHasShownNoFileToast(false), 2000);
-      }
-      return;
-    }
+  // Get current chat ID and message count from chat store
+  const { currentChatId, currentChatMessages } = useChatStore.getState();
+  
+  // Calculate next message ID based on existing messages
+  // Messages are stored as user+assistant pairs, so divide by 2 and add 1
+  const nextMessageId = (Math.ceil((currentChatMessages.length + 1) / 2)).toString();
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: queryText.trim(),
-      timestamp: new Date(),
-      files: selectedFiles,
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setLastQuery(queryText.trim());
-    setPendingQuery(queryText.trim());
-    setIsLoading(true);
-    setInputValue("");
+  // Update dashboard store with correct chat ID and next message ID
+  if (currentChatId) {
+    useDashboardStore.getState().setChatInfo(currentChatId, nextMessageId);
+    console.log(`📝 Setting message ID to ${nextMessageId} for new query`);
+  }
 
-    abortControllerRef.current = new AbortController();
+  // Add user message to chat store
+  addUserMessage(queryText.trim(), selectedFiles);
 
-    const cleanFileNames = selectedFiles
-      .map((file) => file.replace(/\.csv$/i, ""))
-      .join(",");
+  setLastQuery(queryText.trim());
+  setPendingQuery(queryText.trim());
+  setIsLoading(true);
+  setInputValue("");
 
-    try {
-      await fetchDashboardData(queryText.trim(), cleanFileNames);
-    } catch (error) {
-      console.error("Error fetching dashboard:", error);
+  abortControllerRef.current = new AbortController();
 
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "bot",
-        content: "Failed to generate dashboard. Please try again.",
-        timestamp: new Date(),
-        visualRendered: false,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-      setPendingQuery(null);
-      setIsLoading(false);
-      toast.error("Failed to generate dashboard.");
-      abortControllerRef.current = null;
-      toastShownRef.current = null;
-    }
-  };
+  const cleanFileNames = selectedFiles
+    .map((file) => file.replace(/\.csv$/i, ""))
+    .join(",");
+
+  try {
+    await fetchDashboardData(queryText.trim(), cleanFileNames);
+  } catch (error) {
+    console.error("Error fetching dashboard:", error);
+    addAssistantMessage(
+      "Failed to generate dashboard. Please try again.",
+      null,
+    );
+    setPendingQuery(null);
+    setIsLoading(false);
+    toast.error("Failed to generate dashboard.");
+    abortControllerRef.current = null;
+    toastShownRef.current = null;
+  }
+};
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) {
@@ -1296,14 +1448,9 @@ export function SalesDashboard() {
       return;
     }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: "user",
-      content: inputValue.trim(),
-      timestamp: new Date(),
-      files: selectedFiles,
-    };
-    setMessages((prev) => [...prev, userMessage]);
+    // ✅ Add user message to chat store
+    addUserMessage(inputValue.trim(), selectedFiles);
+
     setLastQuery(inputValue.trim());
     setPendingQuery(inputValue.trim());
     setIsLoading(true);
@@ -1320,14 +1467,12 @@ export function SalesDashboard() {
     } catch (error) {
       console.error("Error fetching dashboard:", error);
 
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "bot",
-        content: "Failed to generate dashboard. Please try again.",
-        timestamp: new Date(),
-        visualRendered: false,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      // ✅ Add error message
+      addAssistantMessage(
+        "Failed to generate dashboard. Please try again.",
+        null,
+      );
+
       setPendingQuery(null);
       setIsLoading(false);
       toast.error("Failed to generate dashboard.");
@@ -1337,17 +1482,50 @@ export function SalesDashboard() {
   };
 
   const handleRetry = async () => {
-    if (!lastQuery) return;
-    if (selectedFiles.length === 0) {
-      if (!hasShownNoFileToast) {
-        toast.warning("Please select files before retrying");
-        setHasShownNoFileToast(true);
-        setTimeout(() => setHasShownNoFileToast(false), 2000);
-      }
-      return;
+  if (!lastQuery) return;
+  
+  if (selectedFiles.length === 0) {
+    if (!hasShownNoFileToast) {
+      toast.warning("Please select files before retrying");
+      setHasShownNoFileToast(true);
+      setTimeout(() => setHasShownNoFileToast(false), 2000);
     }
-    await handleSendMessageWithQuery(lastQuery);
-  };
+    return;
+  }
+
+  // Get current chat ID and message count from chat store
+  const { currentChatId, currentChatMessages } = useChatStore.getState();
+  
+  // Calculate next message ID for retry
+  // For retry, we increment the message ID to create a new message
+  const retryMessageId = (Math.ceil((currentChatMessages.length + 1) / 2) + 1).toString();
+  
+  // Update dashboard store with new message ID for retry
+  if (currentChatId) {
+    useDashboardStore.getState().setChatInfo(currentChatId, retryMessageId);
+    console.log(`🔄 Retry with new message ID: ${retryMessageId}`);
+  }
+
+  // Add retry message to chat (mark it as a retry)
+  addUserMessage(` ${lastQuery}`, selectedFiles);
+  
+  setPendingQuery(lastQuery);
+  setIsLoading(true);
+
+  const cleanFileNames = selectedFiles
+    .map((file) => file.replace(/\.csv$/i, ""))
+    .join(",");
+
+  try {
+    await fetchDashboardData(lastQuery, cleanFileNames);
+  } catch (error) {
+    console.error("Error retrying dashboard:", error);
+    addAssistantMessage("Retry failed. Please try again.", null);
+    setPendingQuery(null);
+    setIsLoading(false);
+    toast.error("Retry failed.");
+  }
+};
 
   const copyToClipboard = (text: string, messageId: string) => {
     navigator.clipboard.writeText(text);
@@ -1366,18 +1544,7 @@ export function SalesDashboard() {
   };
 
   return (
-    <DashboardShell>
-    <div className="h-full flex flex-col bg-white min-h-screen">
-      <Toaster />
-      
-      <NavigationBar 
-        userEmail={userEmail}
-        showUserMenu={showUserMenu}
-        setShowUserMenu={setShowUserMenu}
-        handleLogout={handleLogout}
-        handleSettings={handleSettings}
-      />
-
+    <div className="h-full flex flex-col bg-white">
       <input
         ref={fileInputRef}
         type="file"
@@ -1444,7 +1611,10 @@ export function SalesDashboard() {
                     colorInterpolationFilters="sRGB"
                     filterUnits="userSpaceOnUse"
                   >
-                    <feFlood floodOpacity="0" result="BackgroundImageFix"></feFlood>
+                    <feFlood
+                      floodOpacity="0"
+                      result="BackgroundImageFix"
+                    ></feFlood>
                     <feBlend
                       in="SourceGraphic"
                       in2="BackgroundImageFix"
@@ -1584,7 +1754,7 @@ export function SalesDashboard() {
                   >
                     <Mic className="w-5 h-5" />
                   </button>
-                  
+
                   {isLoading ? (
                     <button
                       onClick={handleStopRequest}
@@ -1642,7 +1812,9 @@ export function SalesDashboard() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 hover:bg-gray-800"
-                          onClick={() => copyToClipboard(message.content, message.id)}
+                          onClick={() =>
+                            copyToClipboard(message.content, message.id)
+                          }
                           title="Copy message"
                         >
                           {copiedMessageId === message.id ? (
@@ -1657,10 +1829,10 @@ export function SalesDashboard() {
                     <div className="space-y-2">
                       <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
                         <p className="text-md">{message.content}</p>
-                        
+
                         {message.visualRendered && message.dashboardData && (
                           <div className="mt-4 w-full">
-                            <DashboardCard 
+                            <DashboardCard
                               dashboardData={message.dashboardData}
                               timestamp={message.timestamp}
                               showLoader={false}
@@ -1683,7 +1855,9 @@ export function SalesDashboard() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 hover:bg-gray-200"
-                          onClick={() => copyToClipboard(message.content, message.id)}
+                          onClick={() =>
+                            copyToClipboard(message.content, message.id)
+                          }
                           title="Copy message"
                         >
                           {copiedMessageId === message.id ? (
@@ -1746,7 +1920,9 @@ export function SalesDashboard() {
                   {selectedFiles.length > 0 && (
                     <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                       {selectedFiles.map((fileId) => {
-                        const file = availableFiles.find((f) => f.id === fileId);
+                        const file = availableFiles.find(
+                          (f) => f.id === fileId,
+                        );
                         return (
                           <div
                             key={fileId}
@@ -1778,7 +1954,9 @@ export function SalesDashboard() {
                           ? "bg-red-100 text-red-600 hover:bg-red-200"
                           : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
                       }`}
-                      title={isListening ? "Stop listening" : "Start voice input"}
+                      title={
+                        isListening ? "Stop listening" : "Start voice input"
+                      }
                     >
                       <Mic className="w-5 h-5" />
                     </button>
@@ -1821,6 +1999,7 @@ export function SalesDashboard() {
         </div>
       )}
 
+      {/* File Dialog */}
       {showFileDialog && (
         <>
           <div
@@ -1853,7 +2032,12 @@ export function SalesDashboard() {
                       Available Files
                     </h4>
                     <Badge variant="secondary">
-                      {availableFiles.filter(f => !selectedFiles.includes(f.id)).length} available
+                      {
+                        availableFiles.filter(
+                          (f) => !selectedFiles.includes(f.id),
+                        ).length
+                      }{" "}
+                      available
                     </Badge>
                   </div>
                 </div>
@@ -1942,7 +2126,9 @@ export function SalesDashboard() {
                   ) : (
                     <div className="space-y-2">
                       {selectedFiles.map((fileId) => {
-                        const file = availableFiles.find((f) => f.id === fileId);
+                        const file = availableFiles.find(
+                          (f) => f.id === fileId,
+                        );
                         return (
                           <div
                             key={fileId}
@@ -1987,6 +2173,7 @@ export function SalesDashboard() {
         </>
       )}
 
+      {/* File Upload Modal */}
       {showFileUploadModal && (
         <>
           <div
@@ -2024,9 +2211,7 @@ export function SalesDashboard() {
                   <p className="text-slate-600 font-medium">
                     Click to upload files
                   </p>
-                  <p className="text-sm text-slate-500">
-                    CSV, Excel, JSON
-                  </p>
+                  <p className="text-sm text-slate-500">CSV, Excel, JSON</p>
                 </div>
 
                 {uploading && (
@@ -2052,6 +2237,55 @@ export function SalesDashboard() {
         </>
       )}
     </div>
-    </DashboardShell>
+  );
+};
+
+// ==================== MAIN EXPORT ====================
+
+export function SalesDashboard() {
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const email = localStorage.getItem("user_email") || "";
+    setUserEmail(email);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user_email");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("token_type");
+    router.push("/");
+  };
+
+  const handleSettings = () => {
+    router.push("/settings");
+  };
+
+  return (
+    <div className="h-screen flex flex-col bg-white">
+      <Toaster />
+
+      {/* TOP NAVIGATION BAR - FULL WIDTH */}
+      <NavigationBar
+        userEmail={userEmail}
+        showUserMenu={showUserMenu}
+        setShowUserMenu={setShowUserMenu}
+        handleLogout={handleLogout}
+        handleSettings={handleSettings}
+      />
+
+      {/* SIDEBAR + MAIN CONTENT - BELOW NAVBAR */}
+      <div className="flex-1 flex min-h-0">
+        {/* CHAT SIDEBAR - IMPORTED FROM NEW FILE */}
+        <ChatSidebar />
+
+        {/* MAIN DASHBOARD CONTENT */}
+        <div className="flex-1 overflow-y-auto">
+          <DashboardContent />
+        </div>
+      </div>
+    </div>
   );
 }

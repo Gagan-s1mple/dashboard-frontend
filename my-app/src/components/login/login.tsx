@@ -10,8 +10,9 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import Image from "next/image";
 import { useLoginStore } from "@/src/services/api/login/login-store";
+import { useChatStore } from "@/src/services/api/chat/chat-store"; // ✅ ADDED
 import { toast } from "sonner";
-import { ArrowRight, AlertCircle,  } from "lucide-react"; // Add icons for better UI
+import { ArrowRight, AlertCircle } from "lucide-react"; // ✅ FIXED trailing comma
 
 export function LoginForm({
   className,
@@ -25,7 +26,7 @@ export function LoginForm({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [isSignupError, setIsSignupError] = useState(false); // Track if it's a signup error
+  const [isSignupError, setIsSignupError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,6 +35,18 @@ export function LoginForm({
 
     try {
       await login({ username, password });
+
+      // ✅ ADDED: Initialize chat store with error handling
+      try {
+        const { initializeOnLogin } = useChatStore.getState();
+        if (initializeOnLogin) {
+          await initializeOnLogin();
+          console.log("✅ Chat store initialized on login");
+        }
+      } catch (chatError) {
+        console.error("❌ Chat store initialization failed:", chatError);
+        // Continue with login even if chat store fails
+      }
 
       toast.success("Login successful! 🎉", {
         duration: 2000,
@@ -45,7 +58,6 @@ export function LoginForm({
     } catch (err: any) {
       const errorMessage = err.message || "Login failed";
       
-      // Check if it's the signup error
       if (errorMessage.includes("Please sign up to create an account")) {
         setIsSignupError(true);
         toast.error("Account not found", {

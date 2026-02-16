@@ -1,3 +1,3 @@
 export const url ={
-    backendUrl : "http://98.81.143.17:8000"
+    backendUrl : "http://54.221.32.95:8000"
 }

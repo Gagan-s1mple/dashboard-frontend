@@ -3,6 +3,7 @@
 import { url } from "../api-url";
 import { toast } from "sonner";
 import { create } from "zustand";
+import { useChatStore } from "../chat/chat-store"; // IMPORT the chat store
 
 export interface KPI {
   title: string;
@@ -92,6 +93,12 @@ export class DashboardAPI {
     }
     console.log("📈 Incremented message_id to:", this.messageId);
     console.log("📊 Formatted message_id:", this.getFormattedMessageId());
+  }
+
+  // Reset message_id to 0 for new chat
+  resetMessageId() {
+    this.messageId = "0";
+    console.log("🔄 Reset message_id to 0 for new chat");
   }
 
   /**
@@ -345,6 +352,7 @@ export class DashboardAPI {
   async createDashboardTask(
     message: string,
     file_name: string,
+    chatTitle?: string, // Add optional chatTitle parameter
   ): Promise<{ task_id: string }> {
     console.group("📡 API Call: createDashboardTask");
     console.log("📤 Request Details:");
@@ -355,19 +363,26 @@ export class DashboardAPI {
     console.log("  - Chat ID:", this.chatId);
     console.log("  - Raw Message ID:", this.messageId);
     console.log("  - Formatted Message ID:", this.getFormattedMessageId());
+    console.log("  - Chat Title:", chatTitle || "No title provided");
     console.log("  - Timestamp:", new Date().toISOString());
 
     try {
-      // Increment message_id for new message
-      this.incrementMessageId();
+      // ❌ REMOVED: this.incrementMessageId(); - message_id already incremented in fetchDashboardData
       
-      const requestBody = { 
+      const requestBody: any = { 
         message, 
         file_name,
         chat_id: this.chatId,
         message_id: this.getFormattedMessageId(), // Use formatted message_id
-        title: `Dashboard Query - ${new Date().toLocaleDateString()}`
       };
+      
+      // Add title from chat sidebar if provided, otherwise use default
+      if (chatTitle && chatTitle.trim() !== "" && chatTitle !== "New Chat" && chatTitle !== "Untitled Chat") {
+        requestBody.title = chatTitle;
+      } else {
+        requestBody.title = `Dashboard Query - ${new Date().toLocaleDateString()}`;
+      }
+      
       console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));
 
       const startTime = performance.now();
@@ -460,7 +475,7 @@ interface DashboardState {
   currentChatId: string; // Changed to string
   currentMessageId: string; // Changed to string
   chatHistory: ChatMessage[];
-  fetchDashboardData: (query: string, file_name: string) => Promise<void>;
+  fetchDashboardData: (query: string, file_name: string, chatTitle?: string) => Promise<void>;
   stopPolling: () => void;
   resetDashboard: () => void;
   pollTaskStatus: (taskId: string) => Promise<void>;
@@ -470,6 +485,7 @@ interface DashboardState {
   getCurrentQuery: () => string;
   getCurrentFiles: () => string[];
   setCurrentQueryAndFiles: (query: string, files: string[]) => void;
+  setChatInfo: (chatId: string, messageId: string) => void;
 }
 
 const INITIAL_DASHBOARD_DATA: DashboardBackendResponse = {
@@ -492,10 +508,28 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   currentMessageId: "0", // Start with message_id = "0" as string
   chatHistory: [],
 
-  fetchDashboardData: async (query: string, file_name: string) => {
+  setChatInfo: (chatId: string, messageId: string) => {
+    console.log(`📝 Setting chat info - Chat ID: ${chatId}, Message ID: ${messageId}`);
+    set({ currentChatId: chatId, currentMessageId: messageId });
+    dashboardAPI.setChatId(chatId);
+    dashboardAPI.setMessageId(messageId);
+  },
+
+  fetchDashboardData: async (query: string, file_name: string, chatTitle?: string) => {
     console.log("🔄 Starting to fetch dashboard data for query:", query);
     console.log("📁 File names being sent:", file_name);
+    
+    // Get current chat ID from chat store
+    const currentChatId = useChatStore.getState().currentChatId;
+    
+    // Update the API instance with current chat_id
+    if (currentChatId) {
+      dashboardAPI.setChatId(currentChatId);
+      set({ currentChatId });
+    }
+    
     console.log("📊 Current formatted message ID:", dashboardAPI.getFormattedMessageId());
+    console.log("📝 Chat title being sent:", chatTitle || "No title");
     
     // Store current query and files for chat history
     currentQueryCache = query;
@@ -513,6 +547,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       const { task_id } = await dashboardAPI.createDashboardTask(
         query,
         file_name,
+        chatTitle,
       );
 
       console.log("✅ Task created with ID:", task_id);
@@ -571,55 +606,46 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         });
 
         switch (taskStatus.status) {
-          case "completed":
-            console.log("✅ Task completed successfully!");
-            // Check both result and data fields
-            const dashboardResult = taskStatus.result || taskStatus.data;
-            
-            if (dashboardResult) {
-              console.log("📊 Dashboard data received:", {
-                kpisCount: dashboardResult.kpis?.length || 0,
-                chartsCount: dashboardResult.charts?.length || 0,
-              });
-              
-              set({
-                dashboardData: dashboardResult,
-                hasData: true,
-                loading: false,
-                polling: false,
-                currentTaskId: null,
-              });
-              
-              // Add to chat history using cached query and files
-              if (currentQueryCache && currentFilesCache.length > 0) {
-                get().addToChatHistory(
-                  currentQueryCache,
-                  currentFilesCache,
-                  dashboardResult
-                );
-              }
-              
-              toast.success("Dashboard generated successfully!", {
-                duration: 3000,
-                position: "top-center",
-              });
-            } else {
-              console.error("❌ Task completed but no result/data found");
-              console.error("Task status response:", taskStatus);
-              
-              set({
-                dashboardData: INITIAL_DASHBOARD_DATA,
-                hasData: false,
-                loading: false,
-                polling: false,
-                currentTaskId: null,
-              });
-              toast.error("Task completed but no data received", {
-                duration: 3000,
-                position: "top-center",
-              });
-            }
-            break;
+case "completed":
+  console.log("✅ Task completed successfully!");
+  // Check both result and data fields
+  const dashboardResult = taskStatus.result || taskStatus.data;
+  
+  if (dashboardResult) {
+    console.log("📊 Dashboard data received:", {
+      kpisCount: dashboardResult.kpis?.length || 0,
+      chartsCount: dashboardResult.charts?.length || 0,
+    });
+    
+    set({
+      dashboardData: dashboardResult,
+      hasData: true,
+      loading: false,
+      polling: false,
+      currentTaskId: null,
+    });
+    
+  
+    
+    toast.success("Dashboard generated successfully!", {
+      duration: 3000,
+      position: "top-center",
+    });
+  } else {
+    console.error("❌ Task completed but no result/data found");
+    set({
+      dashboardData: INITIAL_DASHBOARD_DATA,
+      hasData: false,
+      loading: false,
+      polling: false,
+      currentTaskId: null,
+    });
+    toast.error("Task completed but no data received", {
+      duration: 3000,
+      position: "top-center",
+    });
+  }
+  break;
 
           case "failed":
             console.error("❌ Task failed");
@@ -677,67 +703,68 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     poll();
   },
 
-  // Add new message to chat history
+  // Add new message to chat history - NOW SYNCING WITH CHAT STORE
   addToChatHistory: (query: string, files: string[], response?: DashboardBackendResponse) => {
-    set((state) => {
-      // Convert messageId to number, increment, then back to string
-      const currentId = parseInt(state.currentMessageId, 10);
-      const newMessageId = isNaN(currentId) ? "1" : (currentId + 1).toString();
-      
-      const newMessage: ChatMessage = {
-        id: newMessageId,
-        chat_id: state.currentChatId,
-        query,
-        files,
-        response,
-        timestamp: new Date(),
-      };
+    const state = get();
+    
+    // Convert messageId to number, increment, then back to string
+    const currentId = parseInt(state.currentMessageId, 10);
+    const newMessageId = isNaN(currentId) ? "1" : (currentId + 1).toString();
+    
+    const newMessage: ChatMessage = {
+      id: newMessageId,
+      chat_id: state.currentChatId,
+      query,
+      files,
+      response,
+      timestamp: new Date(),
+    };
 
-      console.log("💾 Adding to chat history:", {
-        chat_id: state.currentChatId,
-        message_id: newMessageId,
-        formatted_message_id: dashboardAPI.getFormattedMessageId(),
-        query,
-        files: files.length,
-        hasResponse: !!response
-      });
-
-      return {
-        currentMessageId: newMessageId,
-        chatHistory: [...state.chatHistory, newMessage],
-      };
+    console.log("💾 Adding to chat history:", {
+      chat_id: state.currentChatId,
+      message_id: newMessageId,
+      formatted_message_id: dashboardAPI.getFormattedMessageId(),
+      query,
+      files: files.length,
+      hasResponse: !!response
     });
+
+    // Update local state
+    set({
+      currentMessageId: newMessageId,
+      chatHistory: [...state.chatHistory, newMessage],
+    });
+
+    // ALSO add to chat store so sidebar updates
+    if (response) {
+      // This is an assistant message with dashboard data
+      useChatStore.getState().addAssistantMessage("Dashboard generated successfully! ✨", response);
+    }
   },
 
   // Start a new chat session
   startNewChat: () => {
-    set((state) => {
-      // Convert chatId to number, increment, then back to string
-      const currentChatId = parseInt(state.currentChatId, 10);
-      const newChatId = isNaN(currentChatId) ? "2" : (currentChatId + 1).toString();
-      
-      // Reset message counter for new chat
-      dashboardAPI.setChatId(newChatId);
-      dashboardAPI.setMessageId("0");
-      
-      console.log("🆕 Starting new chat session:", {
-        old_chat_id: state.currentChatId,
-        new_chat_id: newChatId,
-        old_formatted_message_id: dashboardAPI.getFormattedMessageId(),
-        new_formatted_message_id: `U_${newChatId}_0000`
-      });
+    // First create new chat in chat store to get the new ID
+    const newChatId = useChatStore.getState().createNewChat();
+    
+    // Reset message counter for new chat
+    dashboardAPI.setChatId(newChatId);
+    dashboardAPI.resetMessageId();
+    
+    console.log("🆕 Starting new chat session:", {
+      new_chat_id: newChatId,
+      new_formatted_message_id: `U_${newChatId}_0000`
+    });
 
-      return {
-        ...state,
-        currentChatId: newChatId,
-        currentMessageId: "0",
-        
-        hasData: false,
-        dashboardData: INITIAL_DASHBOARD_DATA,
-        loading: false,
-        polling: false,
-        currentTaskId: null,
-      };
+    set({
+      currentChatId: newChatId,
+      currentMessageId: "0",
+      chatHistory: [],
+      hasData: false,
+      dashboardData: INITIAL_DASHBOARD_DATA,
+      loading: false,
+      polling: false,
+      currentTaskId: null,
     });
     
     // Clear cache
@@ -775,6 +802,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         dashboardData: lastMessage.response || INITIAL_DASHBOARD_DATA,
         hasData: !!lastMessage.response,
       });
+      
+      // Also load in chat store
+      useChatStore.getState().fetchChatHistory(chatId);
       
       toast.success(`Loaded chat #${chatId}`, {
         duration: 2000,

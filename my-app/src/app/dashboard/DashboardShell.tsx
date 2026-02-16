@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useState } from "react";
-import { Menu } from "lucide-react";
-import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
+import { Menu, Plus, MessageSquare, Trash2 } from "lucide-react";
+import { useChatStore } from "@/src/services/api/chat/chat-store";
+import { toast } from "sonner";
 
 export default function DashboardShell({
   children,
@@ -10,96 +12,149 @@ export default function DashboardShell({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  
+  const { 
+    chatTitles, 
+    currentChatId, 
+    fetchChatHistory, 
+    createNewChat, 
+    deleteChat,
+    isLoadingTitles 
+  } = useChatStore();
 
-const { chatHistory, currentChatId, loadChat, startNewChat } = useDashboardStore();
-const uniqueChats = Array.from(
-  new Map(
-    chatHistory.map((msg) => [
-      msg.chat_id,
-      {
-        chat_id: msg.chat_id,
-        title: msg.query,
-      },
-    ])
-  ).values()
-);
+  const handleSelectChat = (chatId: string) => {
+    fetchChatHistory(chatId);
+  };
 
-console.log("ChatHistory from sidebar:", chatHistory);
+  const handleNewChat = () => {
+    createNewChat();
+  };
 
-
+  const handleDeleteChat = (e: React.MouseEvent, chatId: string) => {
+    e.stopPropagation();
+    if (confirm("Delete this chat?")) {
+      deleteChat(chatId);
+    }
+  };
 
   return (
-  <div className="flex flex-1">
+    <div className="flex flex-1 h-full">
+      {/* SIDEBAR */}
+      <div
+        className={`bg-white border-r transition-all duration-300 flex flex-col ${
+          collapsed ? "w-16" : "w-72"
+        }`}
+      >
+        {/* HEADER */}
+        <div className="p-4 flex items-center justify-between border-b">
+          {!collapsed && (
+            <span className="font-semibold text-lg text-slate-800">
+              Chat History
+            </span>
+          )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-2 rounded-md hover:bg-slate-100 transition ml-auto"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Menu className="w-5 h-5 text-slate-700" />
+          </button>
+        </div>
 
-    {/* SIDEBAR */}
-    <div
-      className={`bg-white border-r transition-all duration-300 flex flex-col ${
-        collapsed ? "w-16" : "w-64"
-      }`}
-    >
-      {/* HEADER */}
-      <div className="p-4 flex items-center justify-between">
+        {/* NEW CHAT BUTTON */}
+        <div className="p-3">
+          <button
+            onClick={handleNewChat}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm ${
+              collapsed ? "justify-center" : ""
+            }`}
+          >
+            <Plus className="w-5 h-5" />
+            {!collapsed && <span className="text-sm font-medium">New Chat</span>}
+          </button>
+        </div>
+
+        <div className="border-t" />
+
+        {/* CHAT LIST */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {isLoadingTitles ? (
+            <div className="flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : chatTitles.length === 0 ? (
+            !collapsed && (
+              <div className="text-center py-8 px-4">
+                <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-sm text-slate-500">No chats yet</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Start a new conversation
+                </p>
+              </div>
+            )
+          ) : (
+            chatTitles
+              .sort((a, b) => parseInt(b.chat_id, 10) - parseInt(a.chat_id, 10))
+              .map((chat) => (
+                <div
+                  key={chat.chat_id}
+                  className={`group relative rounded-lg transition-all ${
+                    chat.chat_id === currentChatId
+                      ? "bg-indigo-50 border border-indigo-200"
+                      : "hover:bg-slate-50 border border-transparent"
+                  }`}
+                >
+                  <button
+                    onClick={() => handleSelectChat(chat.chat_id)}
+                    className={`w-full text-left px-3 py-2.5 text-sm truncate ${
+                      collapsed ? "text-center" : ""
+                    }`}
+                    title={!collapsed ? chat.title : undefined}
+                  >
+                    {collapsed ? (
+                      <MessageSquare className={`w-5 h-5 mx-auto ${
+                        chat.chat_id === currentChatId ? "text-indigo-600" : "text-slate-500"
+                      }`} />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className={`w-4 h-4 flex-shrink-0 ${
+                          chat.chat_id === currentChatId ? "text-indigo-600" : "text-slate-500"
+                        }`} />
+                        <span className={`truncate ${
+                          chat.chat_id === currentChatId ? "font-medium text-indigo-700" : "text-slate-700"
+                        }`}>
+                          {chat.title}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                  
+                  {!collapsed && (
+                    <button
+                      onClick={(e) => handleDeleteChat(e, chat.chat_id)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition"
+                      title="Delete chat"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))
+          )}
+        </div>
+
+        {/* FOOTER */}
         {!collapsed && (
-          <span className="font-semibold text-slate-800">
-            Chats
-          </span>
-        )}
-
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-md hover:bg-slate-100 transition"
-        >
-          <Menu className="w-5 h-5 text-slate-700" />
-        </button>
-      </div>
-
-      {/* NEW CHAT BUTTON */}
-      <div className="px-3 pb-3">
-        <button
-          onClick={startNewChat}
-          className={`w-full flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition ${
-            collapsed ? "justify-center" : ""
-          }`}
-        >
-          <span className="text-sm font-medium">
-            {collapsed ? "+" : "+ New Chat"}
-          </span>
-        </button>
-      </div>
-
-      <div className="border-t" />
-
-      {/* CHAT LIST */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {chatHistory.length === 0 ? (
-          !collapsed && (
-            <p className="text-sm text-slate-400 text-center mt-4">
-              No chats yet
-            </p>
-          )
-        ) : (
-          uniqueChats.map((chat) => (
-            <button
-              key={chat.chat_id}
-              onClick={() => loadChat(chat.chat_id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm truncate transition ${
-                chat.chat_id === currentChatId
-                  ? "bg-slate-200 font-medium"
-                  : "hover:bg-slate-100"
-              }`}
-            >
-              {collapsed ? "•" : chat.title}
-            </button>
-          ))
+          <div className="p-4 border-t text-xs text-slate-400">
+            {chatTitles.length} {chatTitles.length === 1 ? "chat" : "chats"}
+          </div>
         )}
       </div>
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 overflow-y-auto bg-white">
+        {children}
+      </main>
     </div>
-
-    {/* MAIN CONTENT */}
-    <main className="flex-1 overflow-y-auto bg-white">
-      {children}
-    </main>
-
-  </div>
-);
+  );
 }
