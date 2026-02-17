@@ -37,10 +37,28 @@ export const FileDialogs = ({
   recentlyUploadedFile,
   uploading,
   fileInputRef,
-  onFileUpload,
   onClearSelection,
-  onClose,
+  
 }: FileDialogsProps) => {
+  // Handle cancel in upload modal - go back to file selection
+  const handleUploadCancel = () => {
+    setShowFileUploadModal(false);
+    // Don't close file dialog, just go back to selection
+    // The file dialog should still be open
+  };
+
+  // Handle close/back from upload modal
+//   const handleUploadBack = () => {
+//     setShowFileUploadModal(false);
+//     // File dialog remains open
+//   };
+
+  // Handle success state - close upload modal and return to selection
+  const handleUploadSuccessClose = () => {
+    setShowFileUploadModal(false);
+    // File dialog remains open
+  };
+
   return (
     <>
       {/* File Selection Dialog */}
@@ -230,6 +248,12 @@ export const FileDialogs = ({
                 Upload Successful!
               </h4>
               <p className="text-green-600">{recentlyUploadedFile}</p>
+              <Button
+                onClick={handleUploadSuccessClose}
+                className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+              >
+                Back to File Selection
+              </Button>
             </div>
           ) : (
             <>
@@ -258,7 +282,7 @@ export const FileDialogs = ({
           <div className="flex justify-end gap-2 mt-6">
             <Button
               variant="outline"
-              onClick={() => setShowFileUploadModal(false)}
+              onClick={handleUploadCancel}
             >
               Cancel
             </Button>

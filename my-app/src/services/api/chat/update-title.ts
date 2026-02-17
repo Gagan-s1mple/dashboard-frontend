@@ -1,4 +1,3 @@
-
 import { url } from "../api-url";
 
 export interface UpdateTitlePayload {
@@ -45,6 +44,7 @@ class UpdateTitleAPI {
         body: JSON.stringify(payload),
       });
 
+      // Check if response is OK
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.message || `HTTP error! status: ${response.status}`);
@@ -52,6 +52,13 @@ class UpdateTitleAPI {
 
       const data = await response.json();
       console.log("✅ Title update response:", data);
+      
+      // Even if we get 200, check if the response indicates success
+      // The backend might return success: false even with 200 status
+      if (data.success === false) {
+        throw new Error(data.message || "Failed to update title on server");
+      }
+      
       return data;
     } catch (error) {
       console.error("❌ Failed to update chat title:", error);

@@ -187,7 +187,7 @@ interface ChatStoreActions {
   fetchChatHistory: (chatId: string) => Promise<void>;
   createNewChat: () => string; // Returns new chat_id
   deleteChat: (chatId: string) => Promise<void>;
-  updateChatTitle: (chatId: string, newTitle: string) => Promise<void>;
+  updateChatTitle: (chatId: string, newTitle: string) => Promise<{ success: boolean; message: string }>;
 
   // Message operations
   addUserMessage: (query: string, files: string[]) => void;
@@ -419,6 +419,9 @@ export const useChatStore = create<ChatStore>()(
                 const result = item.content?.result || item.result || {};
                 const task_id = item.content?.task_id || item.task_id;
 
+                // Use content from result if available
+                const assistantContent = result.content || "Dashboard generated successfully! ✨";
+
                 messages.push({
                   id: item.message_id || `msg-${chatId}-${index}-assistant`,
                   chat_id: chatId,
@@ -427,7 +430,7 @@ export const useChatStore = create<ChatStore>()(
                   response: result,
                   timestamp: new Date(item.created_at || Date.now()),
                   role: "assistant",
-                  content: "Dashboard generated successfully! ✨",
+                  content: assistantContent,
                 });
               }
             });
@@ -467,7 +470,7 @@ export const useChatStore = create<ChatStore>()(
         } catch (error) {
           console.error(`Failed to fetch history for chat ${chatId}:`, error);
           set({ isLoadingHistory: false });
-          toast.error("Failed to load chat history");
+          // REMOVED: toast.error - Let main component handle toasts
         }
       },
 
@@ -486,7 +489,7 @@ export const useChatStore = create<ChatStore>()(
           isNewUnsavedChat: true,
         });
 
-        toast.success("New chat started", { duration: 2000 });
+        // REMOVED: toast.success - Let main component handle toasts
         return newChatId;
       },
 
@@ -528,29 +531,30 @@ export const useChatStore = create<ChatStore>()(
           };
         });
 
-        toast.success("Chat deleted", { duration: 2000 });
+        // REMOVED: toast.success - Let main component handle toasts
       },
 
       /**
-       * Update chat title - sends to backend and updates local state
+       * Update chat title - simplified version
        */
       updateChatTitle: async (chatId: string, newTitle: string) => {
         if (!chatId || !newTitle.trim()) {
-          toast.error("Invalid chat ID or title");
-          return;
+          return { success: false, message: "Invalid chat ID or title" };
         }
 
         console.log(`✏️ Renaming chat ${chatId} to: ${newTitle}`);
 
+        // Store previous title for rollback
+        const previousTitles = [...get().chatTitles];
+        const previousChats = { ...get().chats };
+
         // Optimistically update UI first
         set((state) => {
-          // Update in chatTitles array
           const safeChatTitles = Array.isArray(state.chatTitles) ? state.chatTitles : [];
           const updatedTitles = safeChatTitles.map((chat) =>
             chat?.chat_id === chatId ? { ...chat, title: newTitle } : chat
           );
 
-          // Update in chats object if it exists
           const updatedChats = { ...state.chats };
           if (updatedChats[chatId]) {
             updatedChats[chatId] = {
@@ -565,9 +569,6 @@ export const useChatStore = create<ChatStore>()(
           };
         });
 
-        // Show optimistic toast
-        toast.success("Updating title...", { duration: 1000 });
-
         try {
           // Call backend API
           const response = await updateTitleAPI.updateTitle({
@@ -576,20 +577,29 @@ export const useChatStore = create<ChatStore>()(
           });
 
           if (response.success) {
-            toast.success("Chat renamed successfully", { duration: 2000 });
             console.log("✅ Title updated in backend:", response);
+            return { success: true, message: "Chat renamed successfully" };
           } else {
-            // If backend update failed, revert the optimistic update
-            toast.error("Failed to update title on server");
-            // Refresh titles from backend
-            await get().fetchChatTitles();
+            // If backend says success: false, rollback and return error
+            set({
+              chatTitles: previousTitles,
+              chats: previousChats,
+            });
+            return { success: false, message: response.message || "Failed to update title" };
           }
         } catch (error) {
           console.error("❌ Failed to update chat title:", error);
-          toast.error("Failed to rename chat. Please try again.");
           
-          // Revert optimistic update by refreshing from backend
-          await get().fetchChatTitles();
+          // Rollback optimistic update
+          set({
+            chatTitles: previousTitles,
+            chats: previousChats,
+          });
+          
+          return { 
+            success: false, 
+            message: error instanceof Error ? error.message : "Failed to rename chat" 
+          };
         }
       },
 

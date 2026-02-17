@@ -1,7 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Button } from "../ui/button";
-import { Card, CardContent } from "../ui/card";
 import { TrendingUp, BarChart, FileText, Calendar } from "lucide-react";
 
 interface QuickQueriesProps {

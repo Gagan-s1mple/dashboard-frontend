@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { url } from "../api-url";
-import { toast } from "sonner";
 import { create } from "zustand";
 import { useChatStore } from "../chat/chat-store"; // IMPORT the chat store
 
@@ -24,6 +23,8 @@ export interface ChartOption {
 export interface DashboardBackendResponse {
   kpis: KPI[];
   charts: ChartOption[];
+  content?: string; // Add content field
+  table?: any[]; // Add table field for tabular data
 }
 
 export interface TaskStatus {
@@ -184,6 +185,8 @@ export class DashboardAPI {
       // Handle different response formats from backend
       let kpis: KPI[] = [];
       let charts: ChartOption[] = [];
+      let content: string | undefined = undefined;
+      let table: any[] | undefined = undefined;
 
       if (Array.isArray(responseData)) {
         // Backend returns array of KPIs (no charts yet)
@@ -191,12 +194,14 @@ export class DashboardAPI {
         kpis = responseData;
         charts = []; // Empty charts array - frontend will handle this
         console.log(`📊 Backend returned ${kpis.length} KPIs, 0 charts`);
-      } else if (responseData.kpis && responseData.charts) {
-        // Backend returns structured object with both kpis and charts
-        kpis = responseData.kpis;
-        charts = responseData.charts;
+      } else if (responseData.kpis || responseData.charts || responseData.content || responseData.table) {
+        // Backend returns structured object with kpis, charts, content, and table
+        kpis = responseData.kpis || [];
+        charts = responseData.charts || [];
+        content = responseData.content;
+        table = responseData.table;
         console.log(
-          `📊 Backend returned ${kpis.length} KPIs, ${charts.length} charts`,
+          `📊 Backend returned ${kpis.length} KPIs, ${charts.length} charts, ${table?.length || 0} table rows, content: ${content ? 'yes' : 'no'}`,
         );
       } else {
         console.error("❌ Unexpected response format:", responseData);
@@ -223,12 +228,23 @@ export class DashboardAPI {
         });
       });
 
+      // Log content and table if present
+      if (content) {
+        console.log("📝 Content:", content.substring(0, 100) + (content.length > 100 ? '...' : ''));
+      }
+      
+      if (table) {
+        console.log(`📋 Table with ${table.length} rows`);
+      }
+
       console.groupEnd();
 
       // Return EXACTLY what backend provides (or transformed to our interface)
       return {
         kpis,
         charts,
+        content,
+        table,
       };
     } catch (error) {
       console.error("❌ API Call Failed:");
@@ -316,6 +332,14 @@ export class DashboardAPI {
           "  - Result Charts Count:",
           responseData.result.charts?.length || 0,
         );
+        console.log(
+          "  - Result has Content:",
+          !!responseData.result.content,
+        );
+        console.log(
+          "  - Result has Table:",
+          !!(responseData.result.table && responseData.result.table.length > 0),
+        );
       }
 
       if (responseData.data) {
@@ -326,6 +350,14 @@ export class DashboardAPI {
         console.log(
           "  - Data Charts Count:",
           responseData.data.charts?.length || 0,
+        );
+        console.log(
+          "  - Data has Content:",
+          !!responseData.data.content,
+        );
+        console.log(
+          "  - Data has Table:",
+          !!(responseData.data.table && responseData.data.table.length > 0),
         );
       }
 
@@ -493,6 +525,8 @@ interface DashboardState {
 const INITIAL_DASHBOARD_DATA: DashboardBackendResponse = {
   kpis: [],
   charts: [],
+  content: "",
+  table: [],
 };
 
 // Temporary storage for current query and files during polling
@@ -576,14 +610,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         currentTaskId: null,
       });
 
-      // Show error to user
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create task",
-        {
-          duration: 3000,
-          position: "top-center",
-        },
-      );
+      // REMOVED: toast.error - Let main component handle toasts
     }
   },
 
@@ -617,6 +644,8 @@ case "completed":
     console.log("📊 Dashboard data received:", {
       kpisCount: dashboardResult.kpis?.length || 0,
       chartsCount: dashboardResult.charts?.length || 0,
+      hasContent: !!dashboardResult.content,
+      tableRows: dashboardResult.table?.length || 0,
     });
     
     set({
@@ -627,12 +656,7 @@ case "completed":
       currentTaskId: null,
     });
     
-  
-    
-    toast.success("Dashboard generated successfully!", {
-      duration: 3000,
-      position: "top-center",
-    });
+    // REMOVED: toast.success - Let main component handle toasts
   } else {
     console.error("❌ Task completed but no result/data found");
     set({
@@ -642,10 +666,7 @@ case "completed":
       polling: false,
       currentTaskId: null,
     });
-    toast.error("Task completed but no data received", {
-      duration: 3000,
-      position: "top-center",
-    });
+    // REMOVED: toast.error - Let main component handle toasts
   }
   break;
 
@@ -658,10 +679,7 @@ case "completed":
               polling: false,
               currentTaskId: null,
             });
-            toast.error("Task processing failed", {
-              duration: 3000,
-              position: "top-center",
-            });
+            // REMOVED: toast.error - Let main component handle toasts
             break;
 
           case "pending":
@@ -694,10 +712,7 @@ case "completed":
           polling: false,
           currentTaskId: null,
         });
-        toast.error("Failed to check task status", {
-          duration: 3000,
-          position: "top-center",
-        });
+        // REMOVED: toast.error - Let main component handle toasts
       }
     };
 
@@ -740,7 +755,9 @@ case "completed":
     // ALSO add to chat store so sidebar updates
     if (response) {
       // This is an assistant message with dashboard data
-      useChatStore.getState().addAssistantMessage("Dashboard generated successfully! ✨", response);
+      // Use the content from response if available, otherwise use a default message
+      const assistantMessage = response.content || "Dashboard generated successfully! ✨";
+      useChatStore.getState().addAssistantMessage(assistantMessage, response);
     }
   },
 
@@ -773,10 +790,7 @@ case "completed":
     currentQueryCache = "";
     currentFilesCache = [];
     
-    toast.success("Started new chat session", {
-      duration: 2000,
-      position: "top-center",
-    });
+    // REMOVED: toast.success - Let main component handle toasts
   },
 
   // Load a specific chat from history
@@ -808,10 +822,7 @@ case "completed":
       // Also load in chat store
       useChatStore.getState().fetchChatHistory(chatId);
       
-      toast.success(`Loaded chat #${chatId}`, {
-        duration: 2000,
-        position: "top-center",
-      });
+      // REMOVED: toast.success - Let main component handle toasts
     } else {
       console.warn("No messages found for chat_id:", chatId);
     }
@@ -836,10 +847,7 @@ case "completed":
       currentTaskId: null,
       loading: false,
     });
-    toast.info("Polling stopped", {
-      duration: 2000,
-      position: "top-center",
-    });
+    // REMOVED: toast.info - Let main component handle toasts
   },
 
   resetDashboard: () => {

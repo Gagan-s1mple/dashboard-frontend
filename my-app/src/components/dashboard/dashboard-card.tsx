@@ -42,9 +42,16 @@ export const DashboardCard = ({
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const dashboardCardRef = useRef<HTMLDivElement>(null);
 
+  // Process dashboard data to remove empty sections
+  const hasKPIs = dashboardData?.kpis && Array.isArray(dashboardData.kpis) && dashboardData.kpis.length > 0;
+  const hasCharts = dashboardData?.charts && Array.isArray(dashboardData.charts) && dashboardData.charts.length > 0;
+  const hasContent = dashboardData?.content && typeof dashboardData.content === 'string' && dashboardData.content.trim() !== '';
+
   const renderChart = (chartOption: any, index: number) => {
     const fixedChartOption = { ...chartOption };
-    const chartTitle = fixedChartOption.title?.text || `Chart ${index + 1}`;
+    
+    // Keep chart title visible (removed the show: false)
+    // No modification to title
 
     if (fixedChartOption.series) {
       fixedChartOption.series = fixedChartOption.series.map((series: any) => {
@@ -59,9 +66,12 @@ export const DashboardCard = ({
       });
     }
 
+    // Generate a title for download button
+    const chartTitle = chartOption.title?.text || `Chart ${index + 1}`;
+
     return (
       <Card key={`chart-${chartTitle}-${index}`} className="shadow-sm chart-container relative group">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">{chartTitle}</CardTitle>
           <ChartDownloadButton
             chartOption={fixedChartOption}
@@ -325,6 +335,42 @@ export const DashboardCard = ({
     }
   };
 
+  // If no data at all, show empty state
+  if (!dashboardData || (!hasKPIs && !hasCharts)) {
+    return (
+      <Card className="w-full shadow-2xl bg-white overflow-hidden">
+        <CardHeader className="border-b bg-white px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-600 shadow-lg">
+                <LayoutDashboard className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-bold text-slate-800">
+                  AI-Generated Dashboard
+                </CardTitle>
+                <p className="text-sm text-slate-600">Complete Overview</p>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
+            <div className="p-4 rounded-full bg-slate-200 mb-4">
+              <BarChart className="w-12 h-12" />
+            </div>
+            <p className="text-sm font-semibold text-slate-600 mb-1">
+              No Dashboard Data Available
+            </p>
+            <p className="text-xs text-slate-500">
+              Generate a dashboard to see all components
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full shadow-2xl bg-white overflow-hidden">
       <CardHeader className="border-b bg-white px-6 py-4">
@@ -505,9 +551,12 @@ export const DashboardCard = ({
           <div className="min-h-[600px] flex items-center justify-center">
             <SequentialLoader />
           </div>
-        ) : dashboardData ? (
+        ) : (
           <div className="space-y-6">
-            {dashboardData.kpis && dashboardData.kpis.length > 0 && (
+            {/* REMOVED: Content section - now shown only in main message */}
+
+            {/* KPIs section - only show if has KPIs */}
+            {hasKPIs && (
               <div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-600" />
@@ -521,7 +570,8 @@ export const DashboardCard = ({
               </div>
             )}
 
-            {dashboardData.charts && dashboardData.charts.length > 0 && (
+            {/* Charts section - only show if has charts */}
+            {hasCharts && (
               <div>
                 <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <BarChart className="w-5 h-5 text-indigo-600" />
@@ -535,32 +585,42 @@ export const DashboardCard = ({
               </div>
             )}
 
-            {(!dashboardData.kpis || dashboardData.kpis.length === 0) &&
-              (!dashboardData.charts || dashboardData.charts.length === 0) && (
-                <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-                  <div className="p-4 rounded-full bg-slate-200 mb-4">
-                    <BarChart className="w-12 h-12" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-600 mb-1">
-                    No Dashboard Data Available
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Generate a dashboard to see all components
-                  </p>
+            {/* Table section if available */}
+            {dashboardData.table && Array.isArray(dashboardData.table) && dashboardData.table.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-orange-600" />
+                  Data Table
+                </h3>
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {Object.keys(dashboardData.table[0]).map((key) => (
+                          <th
+                            key={key}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {key.replace(/_/g, ' ')}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dashboardData.table.map((row: any, idx: number) => (
+                        <tr key={idx}>
+                          {Object.values(row).map((value: any, colIdx: number) => (
+                            <td key={colIdx} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {value}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-          </div>
-        ) : (
-          <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-            <div className="p-4 rounded-full bg-slate-200 mb-4">
-              <BarChart className="w-12 h-12" />
-            </div>
-            <p className="text-sm font-semibold text-slate-600 mb-1">
-              No Dashboard Data Available
-            </p>
-            <p className="text-xs text-slate-500">
-              Generate a dashboard to see all components
-            </p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

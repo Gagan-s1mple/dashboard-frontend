@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { Menu, Plus, MessageSquare, Trash2, Edit2, X, Check } from "lucide-react";
 import { useChatStore } from "@/src/services/api/chat/chat-store";
+import { toast } from "sonner";
 
 export const ChatSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -12,6 +13,7 @@ export const ChatSidebar = () => {
   const [chatToDelete, setChatToDelete] = useState<{ id: string; title: string } | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [toastId, setToastId] = useState<string | number | null>(null);
   
   const {
     chatTitles,
@@ -43,6 +45,12 @@ export const ChatSidebar = () => {
 
   const handleNewChat = () => {
     createNewChat();
+    
+    if (toastId) {
+      toast.dismiss(toastId);
+    }
+    const id = toast.success("New chat started");
+    setToastId(id);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, chatId: string, chatTitle: string) => {
@@ -51,11 +59,17 @@ export const ChatSidebar = () => {
     setShowDeleteModal(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (chatToDelete) {
-      deleteChat(chatToDelete.id);
+      await deleteChat(chatToDelete.id);
       setShowDeleteModal(false);
       setChatToDelete(null);
+      
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+      const id = toast.success("Chat deleted successfully");
+      setToastId(id);
     }
   };
 
@@ -71,9 +85,38 @@ export const ChatSidebar = () => {
   };
 
   const handleRenameSave = async (chatId: string) => {
-    if (editingTitle.trim() && editingTitle.trim() !== getChatTitle(chatId)) {
-      await updateChatTitle(chatId, editingTitle.trim());
+    if (!editingTitle.trim()) {
+      if (toastId) {
+        toast.dismiss(toastId);
+      }
+      const id = toast.error("Title cannot be empty");
+      setToastId(id);
+      return;
     }
+
+    if (editingTitle.trim() === getChatTitle(chatId)) {
+      setEditingChatId(null);
+      setEditingTitle("");
+      return;
+    }
+
+    // Show loading toast
+    const loadingId = toast.loading("Updating title...");
+    setToastId(loadingId);
+
+    const result = await updateChatTitle(chatId, editingTitle.trim());
+
+    // Dismiss loading toast
+    toast.dismiss(loadingId);
+
+    if (result.success) {
+      const id = toast.success(result.message);
+      setToastId(id);
+    } else {
+      const id = toast.error(result.message);
+      setToastId(id);
+    }
+
     setEditingChatId(null);
     setEditingTitle("");
   };
@@ -99,7 +142,7 @@ export const ChatSidebar = () => {
   return (
     <>
       <div
-        className={` border-r transition-all duration-300 flex flex-col h-full ${
+        className={`border-r transition-all duration-300 flex flex-col h-full bg-white ${
           collapsed ? "w-16" : "w-72"
         }`}
       >
@@ -119,16 +162,21 @@ export const ChatSidebar = () => {
           </button>
         </div>
 
-        {/* NEW CHAT BUTTON */}
+        {/* NEW CHAT BUTTON - No icon when collapsed */}
         <div className="p-3">
           <button
             onClick={handleNewChat}
             className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm ${
               collapsed ? "justify-center" : ""
             }`}
+            title={collapsed ? "New Chat" : ""}
           >
-            <Plus className="w-5 h-5" />
-            {!collapsed && <span className="text-sm font-medium">New Chat</span>}
+            {!collapsed && <Plus className="w-5 h-5" />}
+            {!collapsed ? (
+              <span className="text-sm font-medium">New Chat</span>
+            ) : (
+              <Plus className="w-5 h-5" />
+            )}
           </button>
         </div>
 
@@ -207,12 +255,13 @@ export const ChatSidebar = () => {
                         className={`w-full text-left px-3 py-2.5 text-sm truncate ${
                           collapsed ? "text-center" : ""
                         }`}
-                        title={!collapsed ? chat?.title : undefined}
+                        title={!collapsed ? chat?.title : chat?.title}
                       >
                         {collapsed ? (
-                          <MessageSquare className={`w-5 h-5 mx-auto ${
-                            chat?.chat_id === currentChatId ? "text-indigo-600" : "text-slate-500"
-                          }`} />
+                          // No icon when collapsed
+                          <span className="text-xs font-medium text-slate-700">
+                            {chat?.title?.charAt(0) || "C"}
+                          </span>
                         ) : (
                           <div className="flex items-center gap-2">
                             <MessageSquare className={`w-4 h-4 flex-shrink-0 ${
