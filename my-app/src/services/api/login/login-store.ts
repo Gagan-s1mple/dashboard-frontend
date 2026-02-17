@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 import { url } from "../api-url";
+import { useChatStore } from "../chat/chat-store"; // ADD THIS IMPORT
 
 interface LoginPayload {
   username: string;
@@ -12,7 +13,6 @@ interface LoginResponse {
   message: string;
   email: string;
   name: string;
-
 }
 
 interface LoginState {
@@ -40,66 +40,71 @@ export const useLoginStore = create<LoginState>((set, get) => ({
 
     set({
       token: localStorage.getItem("auth_token"),
-      
       email: localStorage.getItem("user_email"),
       name: localStorage.getItem("user_name"),
     });
   },
 
-
-
   login: async (payload) => {
-  try {
-    set({ loading: true, error: null });
+    try {
+      set({ loading: true, error: null });
 
-    const response = await fetch(`${url.backendUrl}/api/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(`${url.backendUrl}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const data = await response.json().catch(() => null);
-    console.log("Login response data:", data);
-    if (!response.ok) {
-      const message =
-        data?.detail ||
-        data?.message ||
-        "Login failed";
+      const data = await response.json().catch(() => null);
+      console.log("Login response data:", data);
+      
+      if (!response.ok) {
+        const message =
+          data?.detail ||
+          data?.message ||
+          "Login failed";
 
-      if (message.includes("Please sign up to create an account")) {
-        throw new Error("Please sign up to create an account.");
+        if (message.includes("Please sign up to create an account")) {
+          throw new Error("Please sign up to create an account.");
+        }
+
+        throw new Error(message);
       }
 
-      throw new Error(message);
+      // ✅ Success case
+      localStorage.setItem("auth_token", data.access_token);
+      localStorage.setItem("user_email", data.email || payload.username);
+      localStorage.setItem("user_name", data.name);
+      localStorage.setItem("currency", data.currency);
+
+      set({
+        loading: false,
+        token: data.access_token,
+        email: data.email || payload.username,
+        name: data.name,
+      });
+
+      // ✅ ADD THIS - Initialize chat store after successful login
+      setTimeout(() => {
+        useChatStore.getState().initializeOnLogin();
+      }, 100);
+
+      return data;
+
+    } catch (err: any) {
+      set({ loading: false, error: err.message });
+      throw err;
     }
-
-    // ✅ Success case
-    localStorage.setItem("auth_token", data.access_token);
-    localStorage.setItem("user_email", data.email || payload.username);
-    localStorage.setItem("user_name", data.name);
-    localStorage.setItem("currency", data.currency);
-
-    set({
-      loading: false,
-      token: data.access_token,
-      email: data.email || payload.username,
-      name: data.name,
-    });
-
-    return data;
-
-  } catch (err: any) {
-    set({ loading: false, error: err.message });
-    throw err;
-  }
-},
-
+  },
 
   logout: () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_email");
       localStorage.removeItem("token_type");
+      
+      // ✅ ADD THIS - Clean up chat store on logout
+      useChatStore.getState().cleanupOnLogout();
     }
 
     set({ token: null, email: null, error: null });

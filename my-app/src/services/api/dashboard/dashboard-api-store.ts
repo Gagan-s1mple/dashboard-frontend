@@ -128,7 +128,8 @@ export class DashboardAPI {
         file_name,
         chat_id: this.chatId,
         message_id: this.getFormattedMessageId(), // Use formatted message_id
-        title: `Dashboard Query - ${new Date().toLocaleDateString()}`
+        // ✅ FIX: Use the actual query as title instead of hardcoded "Dashboard Query"
+        title: message // Use the user's query as the title
       };
       console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));
 
@@ -376,11 +377,12 @@ export class DashboardAPI {
         message_id: this.getFormattedMessageId(), // Use formatted message_id
       };
       
-      // Add title from chat sidebar if provided, otherwise use default
+      // ✅ FIX: Use the query message as title if chatTitle is not provided or is generic
       if (chatTitle && chatTitle.trim() !== "" && chatTitle !== "New Chat" && chatTitle !== "Untitled Chat") {
         requestBody.title = chatTitle;
       } else {
-        requestBody.title = `Dashboard Query - ${new Date().toLocaleDateString()}`;
+        // Use the actual user query as the title
+        requestBody.title = message; // Use the query as title instead of hardcoded text
       }
       
       console.log("  - Request Body:", JSON.stringify(requestBody, null, 2));

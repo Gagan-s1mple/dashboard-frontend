@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { url } from "../api-url";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { updateTitleAPI } from "./update-title";
 
 // ============ TYPES ============
 
@@ -54,7 +56,19 @@ class ChatHistoryAPI {
       });
 
       if (!response.ok) return [];
-      return await response.json();
+      
+      const data = await response.json();
+      
+      // Handle different response formats
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data && data.titles && Array.isArray(data.titles)) {
+        return data.titles;
+      } else if (data && data.chats && Array.isArray(data.chats)) {
+        return data.chats;
+      }
+      
+      return [];
     } catch (error) {
       console.error("Failed to fetch chat titles:", error);
       return [];
@@ -93,11 +107,13 @@ class ChatHistoryAPI {
       const data = await response.json();
       console.log("Chat history received:", data);
 
-      // ✅ FIX: Extract messages from the nested structure
+      // Extract messages from the nested structure
       if (data && data.chats && data.chats.messages) {
         return data.chats.messages;
       } else if (Array.isArray(data)) {
         return data;
+      } else if (data && data.messages && Array.isArray(data.messages)) {
+        return data.messages;
       } else {
         console.warn("Unexpected response format:", data);
         return [];
@@ -113,6 +129,21 @@ export const chatHistoryAPI = new ChatHistoryAPI();
 
 // ============ STORE ============
 
+// Add these new types for UI state persistence
+export interface UploadedFile {
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: Date;
+  isExisting?: boolean;
+}
+
+export interface DatabaseFile {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 interface ChatStoreState {
   // All chat titles from backend
   chatTitles: ChatTitle[];
@@ -126,7 +157,7 @@ interface ChatStoreState {
   currentChatMessages: ChatMessage[];
   currentDashboardData: any | null;
 
-  // ✅ ADD THIS - Track current message ID for the active chat
+  // Track current message ID for the active chat
   currentMessageId: string;
 
   // UI states
@@ -134,6 +165,16 @@ interface ChatStoreState {
 
   // Track if this is a brand new unsaved chat
   isNewUnsavedChat: boolean;
+
+  // ===== NEW: UI State for Dashboard =====
+  // Selected files state
+  selectedFiles: string[];
+  uploadedFiles: UploadedFile[];
+  availableFiles: DatabaseFile[];
+  
+  // Input state
+  inputValue: string;
+  lastQuery: string;
 }
 
 interface ChatStoreActions {
@@ -146,13 +187,24 @@ interface ChatStoreActions {
   fetchChatHistory: (chatId: string) => Promise<void>;
   createNewChat: () => string; // Returns new chat_id
   deleteChat: (chatId: string) => Promise<void>;
+  updateChatTitle: (chatId: string, newTitle: string) => Promise<void>;
 
   // Message operations
   addUserMessage: (query: string, files: string[]) => void;
   addAssistantMessage: (content: string, dashboardData: any) => void;
 
-  // ✅ ADD THIS - Set current message ID
+  // Set current message ID
   setCurrentMessageId: (messageId: string) => void;
+
+  // ===== NEW: UI State Actions =====
+  setSelectedFiles: (files: string[] | ((prev: string[]) => string[])) => void;
+  setUploadedFiles: (files: UploadedFile[] | ((prev: UploadedFile[]) => UploadedFile[])) => void;
+  setAvailableFiles: (files: DatabaseFile[] | ((prev: DatabaseFile[]) => DatabaseFile[])) => void;
+  setInputValue: (value: string) => void;
+  setLastQuery: (query: string) => void;
+  
+  // Utility
+  clearAllState: () => void;
 
   // Getters
   getCurrentChatId: () => string | null;
@@ -179,9 +231,16 @@ export const useChatStore = create<ChatStore>()(
       currentChatId: null,
       currentChatMessages: [],
       currentDashboardData: null,
-      currentMessageId: "0", // ✅ ADD THIS - Start with message_id = "0"
+      currentMessageId: "0",
       isLoadingHistory: false,
       isNewUnsavedChat: false,
+
+      // ===== NEW: UI State Initial Values =====
+      selectedFiles: [],
+      uploadedFiles: [],
+      availableFiles: [],
+      inputValue: "",
+      lastQuery: "",
 
       // ========== ACTIONS ==========
 
@@ -200,14 +259,31 @@ export const useChatStore = create<ChatStore>()(
           currentChatId: null,
           currentChatMessages: [],
           currentDashboardData: null,
-          currentMessageId: "0", // ✅ ADD THIS - Reset to 0 on login
+          currentMessageId: "0",
           isNewUnsavedChat: false,
+          // Don't clear UI state here - keep files
         });
 
         await get().fetchChatTitles();
-        get().createNewChat();
+        
+        // Only create new chat if there are no existing chats
+        const { chatTitles } = get();
+        if (!chatTitles || chatTitles.length === 0) {
+          get().createNewChat();
+        } else {
+          // If there are existing chats, select the most recent one
+          const sortedTitles = [...chatTitles].sort((a, b) => {
+            const numA = parseInt(a?.chat_id || "0", 10);
+            const numB = parseInt(b?.chat_id || "0", 10);
+            return numB - numA;
+          });
+          
+          if (sortedTitles[0]?.chat_id) {
+            await get().fetchChatHistory(sortedTitles[0].chat_id);
+          }
+        }
 
-        console.log("✅ Login initialization complete - fresh new chat ready");
+        console.log("✅ Login initialization complete");
       },
 
       /**
@@ -220,14 +296,15 @@ export const useChatStore = create<ChatStore>()(
           "🚪 CLEANUP ON LOGOUT: Clearing current selection only, keeping chat history",
         );
         set({
-          // ✅ KEEP chatTitles and chats for when user logs back in
-          // ✅ ONLY clear the current session state
+          // KEEP chatTitles and chats for when user logs back in
+          // ONLY clear the current session state
           currentChatId: null,
           currentChatMessages: [],
           currentDashboardData: null,
-          currentMessageId: "0", // ✅ ADD THIS - Reset on logout
+          currentMessageId: "0",
           isLoadingTitles: false,
           isNewUnsavedChat: false,
+          // Don't clear UI state on logout
         });
       },
 
@@ -320,7 +397,7 @@ export const useChatStore = create<ChatStore>()(
 
           if (Array.isArray(history)) {
             history.forEach((item, index) => {
-              // ✅ Handle user message
+              // Handle user message
               if (item?.role === "user" || item?.content?.query) {
                 const query = item.content?.query || item.query || "";
                 const files = item.files || [];
@@ -337,7 +414,7 @@ export const useChatStore = create<ChatStore>()(
                 });
               }
 
-              // ✅ Handle assistant/bot message
+              // Handle assistant/bot message
               if (item?.role === "bot" || item?.content?.result) {
                 const result = item.content?.result || item.result || {};
                 const task_id = item.content?.task_id || item.task_id;
@@ -360,7 +437,7 @@ export const useChatStore = create<ChatStore>()(
             .reverse()
             .find((m) => m.role === "assistant");
 
-          // ✅ Calculate current message ID based on number of message pairs
+          // Calculate current message ID based on number of message pairs
           const messagePairs = Math.ceil(messages.length / 2);
           const currentMessageId = messagePairs.toString();
 
@@ -379,7 +456,7 @@ export const useChatStore = create<ChatStore>()(
             currentChatId: chatId,
             currentChatMessages: messages,
             currentDashboardData: lastAssistantMsg?.response || null,
-            currentMessageId: currentMessageId, // ✅ SET the message ID
+            currentMessageId: currentMessageId,
             isLoadingHistory: false,
             isNewUnsavedChat: false,
           }));
@@ -405,7 +482,7 @@ export const useChatStore = create<ChatStore>()(
           currentChatId: newChatId,
           currentChatMessages: [],
           currentDashboardData: null,
-          currentMessageId: "0", // ✅ ADD THIS - Reset to 0 for new chat
+          currentMessageId: "0",
           isNewUnsavedChat: true,
         });
 
@@ -455,6 +532,68 @@ export const useChatStore = create<ChatStore>()(
       },
 
       /**
+       * Update chat title - sends to backend and updates local state
+       */
+      updateChatTitle: async (chatId: string, newTitle: string) => {
+        if (!chatId || !newTitle.trim()) {
+          toast.error("Invalid chat ID or title");
+          return;
+        }
+
+        console.log(`✏️ Renaming chat ${chatId} to: ${newTitle}`);
+
+        // Optimistically update UI first
+        set((state) => {
+          // Update in chatTitles array
+          const safeChatTitles = Array.isArray(state.chatTitles) ? state.chatTitles : [];
+          const updatedTitles = safeChatTitles.map((chat) =>
+            chat?.chat_id === chatId ? { ...chat, title: newTitle } : chat
+          );
+
+          // Update in chats object if it exists
+          const updatedChats = { ...state.chats };
+          if (updatedChats[chatId]) {
+            updatedChats[chatId] = {
+              ...updatedChats[chatId],
+              title: newTitle,
+            };
+          }
+
+          return {
+            chatTitles: updatedTitles,
+            chats: updatedChats,
+          };
+        });
+
+        // Show optimistic toast
+        toast.success("Updating title...", { duration: 1000 });
+
+        try {
+          // Call backend API
+          const response = await updateTitleAPI.updateTitle({
+            chat_id: chatId,
+            title: newTitle,
+          });
+
+          if (response.success) {
+            toast.success("Chat renamed successfully", { duration: 2000 });
+            console.log("✅ Title updated in backend:", response);
+          } else {
+            // If backend update failed, revert the optimistic update
+            toast.error("Failed to update title on server");
+            // Refresh titles from backend
+            await get().fetchChatTitles();
+          }
+        } catch (error) {
+          console.error("❌ Failed to update chat title:", error);
+          toast.error("Failed to rename chat. Please try again.");
+          
+          // Revert optimistic update by refreshing from backend
+          await get().fetchChatTitles();
+        }
+      },
+
+      /**
        * Add a user message to the current chat
        */
       addUserMessage: (query: string, files: string[]) => {
@@ -470,7 +609,7 @@ export const useChatStore = create<ChatStore>()(
           return;
         }
 
-        // ✅ Increment message ID for user message
+        // Increment message ID for user message
         const nextMessageId = (parseInt(currentMessageId) + 1).toString();
 
         const newMessage: ChatMessage = {
@@ -488,7 +627,7 @@ export const useChatStore = create<ChatStore>()(
 
         set({
           currentChatMessages: updatedMessages,
-          currentMessageId: nextMessageId, // ✅ Update message ID
+          currentMessageId: nextMessageId,
         });
 
         set((state) => {
@@ -563,7 +702,7 @@ export const useChatStore = create<ChatStore>()(
           return;
         }
 
-        // ✅ Increment message ID for assistant message
+        // Increment message ID for assistant message
         const nextMessageId = (parseInt(currentMessageId) + 1).toString();
 
         const newMessage: ChatMessage = {
@@ -582,7 +721,7 @@ export const useChatStore = create<ChatStore>()(
         set({
           currentChatMessages: updatedMessages,
           currentDashboardData: dashboardData,
-          currentMessageId: nextMessageId, // ✅ Update message ID
+          currentMessageId: nextMessageId,
         });
 
         set((state) => {
@@ -611,6 +750,38 @@ export const useChatStore = create<ChatStore>()(
         );
       },
 
+      // ===== NEW: UI State Actions =====
+      setSelectedFiles: (files) => 
+        set((state) => ({
+          selectedFiles: typeof files === 'function' ? files(state.selectedFiles) : files
+        })),
+      
+      setUploadedFiles: (files) =>
+        set((state) => ({
+          uploadedFiles: typeof files === 'function' ? files(state.uploadedFiles) : files
+        })),
+      
+      setAvailableFiles: (files) =>
+        set((state) => ({
+          availableFiles: typeof files === 'function' ? files(state.availableFiles) : files
+        })),
+      
+      setInputValue: (value) => set({ inputValue: value }),
+      setLastQuery: (query) => set({ lastQuery: query }),
+      
+      clearAllState: () => set({
+        selectedFiles: [],
+        uploadedFiles: [],
+        availableFiles: [],
+        inputValue: "",
+        lastQuery: "",
+        currentChatId: null,
+        currentChatMessages: [],
+        currentDashboardData: null,
+        currentMessageId: "0",
+        isNewUnsavedChat: false,
+      }),
+
       // ========== GETTERS ==========
 
       getCurrentChatId: () => get().currentChatId,
@@ -628,9 +799,20 @@ export const useChatStore = create<ChatStore>()(
       name: "chat-history-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        // Chat related
         chatTitles: state.chatTitles,
         chats: state.chats,
-        currentMessageId: state.currentMessageId, // ✅ ADD THIS - Persist message ID
+        currentChatId: state.currentChatId,
+        currentChatMessages: state.currentChatMessages,
+        currentDashboardData: state.currentDashboardData,
+        currentMessageId: state.currentMessageId,
+        
+        // UI State
+        selectedFiles: state.selectedFiles,
+        uploadedFiles: state.uploadedFiles,
+        availableFiles: state.availableFiles,
+        inputValue: state.inputValue,
+        lastQuery: state.lastQuery,
       }),
     },
   ),

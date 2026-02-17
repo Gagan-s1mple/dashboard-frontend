@@ -1,4 +1,4 @@
-/* eslint-disable jsx-a11y/alt-text */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
@@ -6,7 +6,6 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import ReactECharts from "echarts-for-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -45,15 +44,9 @@ import {
   CircleStop,
 } from "lucide-react";
 
-import * as htmlToImage from "html-to-image";
-import jsPDF from "jspdf";
-import * as XLSX from "xlsx";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
-
-import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
-import { useDeleteFileStore } from "@/src/services/api/dashboard/delete-store";
 import { useRouter } from "next/navigation";
 
 import { fetchDataSources } from "@/src/services/api/dashboard/data-source";
@@ -68,814 +61,28 @@ import {
 } from "../ui/table";
 import { ScrollArea } from "../ui/scroll-area";
 
-// ==================== IMPORT CHAT SIDEBAR ====================
+// ==================== IMPORTED COMPONENTS ====================
 import { ChatSidebar } from "@/src/components/chat/ChatSidebar";
-
-// ==================== CHAT STORE ====================
 import { useChatStore } from "@/src/services/api/chat/chat-store";
+import { NavigationBar } from "./navigation-bar";
+import { DashboardCard } from "./dashboard-card";
+import { QuickQueries } from "./quick-queries";
+import { MessageInput } from "./message-input";
+import { FileDialogs } from "./file-dialogs";
+import { ThinkingIndicator } from "./loaders";
+import { 
+  UploadedFile, 
+  DatabaseFile, 
+  getFileTypeFromName, 
+  formatFileSize, 
+  getFileIcon,
+  loadExistingFiles,
+  convertToDatabaseFiles,
+  useFileOperations 
+} from "@/src/services/utils/file-handling";
+import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
 
-// ==================== SEQUENTIAL LOADER ====================
-
-const SequentialLoader = () => {
-  const messages = [
-    "Preparing dashboard...",
-    "Loading data...",
-    "Almost there...",
-    "Please wait ⏳",
-  ];
-  const [step, setStep] = React.useState(0);
-
-  React.useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((prev) => (prev + 1) % messages.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="flex flex-col items-center justify-center h-full space-y-2">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      <p className="text-slate-500 text-sm font-medium">{messages[step]}</p>
-    </div>
-  );
-};
-
-// ==================== ROTATING TEXT LOADER ====================
-
-const RotatingTextLoader = () => {
-  const texts = [
-    "Thinking...",
-    "Generating response...",
-    "Analyzing data...",
-    "Please Wait...",
-  ];
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep((prev) => (prev + 1) % texts.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <motion.div
-      key={step}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="text-md italic text-gray-600"
-    >
-      {texts[step]}
-    </motion.div>
-  );
-};
-
-// ==================== QUICK QUERIES COMPONENT ====================
-
-const QuickQueries = ({
-  onSelectQuery,
-}: {
-  onSelectQuery: (query: string) => void;
-}) => {
-  const quickQueries = [
-    {
-      icon: <TrendingUp className="w-4 h-4" />,
-      text: "Plot a sales Dashboard",
-      description: "Visualize sales trends and performance",
-    },
-    {
-      icon: <BarChart className="w-4 h-4" />,
-      text: "Show me product performance",
-      description: "Analyze top products and categories",
-    },
-    {
-      icon: <FileText className="w-4 h-4" />,
-      text: "Analyze branch sales",
-      description: "Compare sales across different branches",
-    },
-    {
-      icon: <Calendar className="w-4 h-4" />,
-      text: "Monthly revenue analysis",
-      description: "View revenue trends by month",
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 gap-3 mt-6 max-w-3xl mx-auto">
-      {quickQueries.map((query, index) => (
-        <motion.button
-          key={index}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
-          onClick={() => onSelectQuery(query.text)}
-          className="flex items-start gap-3 p-4 bg-white/70 border border-white/20 rounded-xl hover:bg-white/90 hover:border-indigo-200 transition-all text-left group shadow-sm hover:shadow-md"
-        >
-          <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600 group-hover:bg-indigo-100 transition-colors">
-            {query.icon}
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-slate-800">{query.text}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{query.description}</p>
-          </div>
-        </motion.button>
-      ))}
-    </div>
-  );
-};
-
-// ==================== CHART DOWNLOAD BUTTON ====================
-
-const ChartDownloadButton = ({
-  chartOption,
-  chartTitle,
-}: {
-  chartOption: any;
-  chartTitle: string;
-}) => {
-  const [showMenu, setShowMenu] = useState(false);
-  const chartRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const echartRef = useRef<any>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const downloadChart = async (format: string) => {
-    if (!chartRef.current) return;
-
-    try {
-      let canvas;
-
-      if (format === "png" || format === "jpg") {
-        if (echartRef.current && echartRef.current.getEchartsInstance) {
-          const instance = echartRef.current.getEchartsInstance();
-          canvas = instance.getRenderedCanvas({
-            backgroundColor: "#fff",
-            pixelRatio: 2,
-          });
-        } else {
-          canvas = await htmlToImage.toCanvas(chartRef.current, {
-            backgroundColor: "#ffffff",
-            pixelRatio: 2,
-          });
-        }
-
-        if (format === "png") {
-          const link = document.createElement("a");
-          link.download = `${chartTitle || "chart"}.png`;
-          link.href = canvas.toDataURL("image/png");
-          link.click();
-          toast.success("Chart downloaded as PNG");
-        } else if (format === "jpg") {
-          const link = document.createElement("a");
-          link.download = `${chartTitle || "chart"}.jpg`;
-          link.href = canvas.toDataURL("image/jpeg", 0.95);
-          link.click();
-          toast.success("Chart downloaded as JPG");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to download chart:", error);
-      toast.error("Failed to download chart");
-    }
-
-    setShowMenu(false);
-  };
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 hover:bg-slate-100"
-        onClick={() => setShowMenu(!showMenu)}
-        title="Download options"
-      >
-        <DownloadCloud className="w-4 h-4" />
-      </Button>
-
-      {showMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowMenu(false)}
-          />
-          <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
-            <div className="py-1">
-              <button
-                onClick={() => downloadChart("png")}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <Image className="w-4 h-4" />
-                Download as PNG
-              </button>
-              <button
-                onClick={() => downloadChart("jpg")}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <Image className="w-4 h-4" />
-                Download as JPG
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-
-      <div
-        ref={chartRef}
-        className="absolute -left-[9999px] top-0 w-[800px] h-[400px] bg-white p-4"
-      >
-        <ReactECharts
-          ref={echartRef}
-          option={chartOption}
-          style={{ height: "100%", width: "100%" }}
-          opts={{ renderer: "canvas" }}
-        />
-      </div>
-    </div>
-  );
-};
-
-// ==================== DASHBOARD CARD WITH EXPORT ====================
-
-interface DashboardCardProps {
-  dashboardData: any;
-  timestamp: Date;
-  cardRef?: React.RefObject<HTMLDivElement>;
-  showLoader?: boolean;
-}
-
-const DashboardCard = ({
-  dashboardData,
-  timestamp,
-  cardRef,
-  showLoader,
-}: DashboardCardProps) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-  const dashboardCardRef = useRef<HTMLDivElement>(null);
-
-  const renderChart = (chartOption: any, index: number) => {
-    const fixedChartOption = { ...chartOption };
-    const chartTitle = fixedChartOption.title?.text || `Chart ${index + 1}`;
-
-    if (fixedChartOption.series) {
-      fixedChartOption.series = fixedChartOption.series.map((series: any) => {
-        if (series.type === "doughnut") {
-          return {
-            ...series,
-            type: "pie",
-            radius: ["40%", "70%"],
-          };
-        }
-        return series;
-      });
-    }
-
-    return (
-      <Card key={`chart-${chartTitle}-${index}`} className="shadow-sm chart-container relative group">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">{chartTitle}</CardTitle>
-          <ChartDownloadButton
-            chartOption={fixedChartOption}
-            chartTitle={chartTitle}
-          />
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ReactECharts
-              option={fixedChartOption}
-              style={{ height: "100%", width: "100%" }}
-              opts={{ renderer: "canvas" }}
-            />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderKPICard = (kpi: any, index: number) => {
-    // Safety check for kpi and title
-    if (!kpi || !kpi.title) {
-      return null;
-    }
-
-    let badgeVariant: "secondary" | "outline" | "default" | "destructive" =
-      "secondary";
-    let badgeIcon = "📊";
-
-    if (kpi.title.includes("Sales") || kpi.title.includes("Revenue")) {
-      badgeVariant = "secondary";
-      badgeIcon = "₹";
-    } else if (
-      kpi.title.includes("Transaction") ||
-      kpi.title.includes("Count")
-    ) {
-      badgeVariant = "outline";
-      badgeIcon = "#";
-    } else if (kpi.title.includes("Rating") || kpi.title.includes("Score")) {
-      badgeVariant = "default";
-      badgeIcon = "⭐";
-    } else if (
-      kpi.title.includes("Profit") ||
-      kpi.title.includes("Income") ||
-      kpi.title.includes("Margin")
-    ) {
-      badgeVariant = "destructive";
-      badgeIcon = "💰";
-    }
-
-    return (
-      <Card key={`kpi-${kpi.title}-${index}`} className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-slate-600">
-            {kpi.title}
-          </CardTitle>
-          <Badge variant={badgeVariant}>{badgeIcon}</Badge>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-black">{kpi.value}</div>
-          <p className="text-xs text-muted-foreground">{kpi.description}</p>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const downloadFile = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const exportToExcel = () => {
-    try {
-      const wb = XLSX.utils.book_new();
-
-      if (dashboardData.kpis && dashboardData.kpis.length > 0) {
-        const kpiData = dashboardData.kpis.map((kpi: any) => ({
-          Metric: kpi.title,
-          Value: kpi.value,
-          Description: kpi.description || "",
-        }));
-        const kpiWs = XLSX.utils.json_to_sheet(kpiData);
-        XLSX.utils.book_append_sheet(wb, kpiWs, "KPIs");
-      }
-
-      if (dashboardData.charts && dashboardData.charts.length > 0) {
-        const chartData: any[] = [];
-        dashboardData.charts.forEach((chart: any, idx: number) => {
-          const chartTitle = chart.title?.text || `Chart ${idx + 1}`;
-
-          if (chart.series && chart.series.length > 0) {
-            chart.series.forEach((series: any) => {
-              if (series.data && Array.isArray(series.data)) {
-                series.data.forEach((item: any, dataIdx: number) => {
-                  chartData.push({
-                    Chart: chartTitle,
-                    Series: series.name || `Series ${dataIdx + 1}`,
-                    Category: item.name || `Item ${dataIdx + 1}`,
-                    Value: item.value || item,
-                  });
-                });
-              }
-            });
-          }
-        });
-
-        if (chartData.length > 0) {
-          const chartWs = XLSX.utils.json_to_sheet(chartData);
-          XLSX.utils.book_append_sheet(wb, chartWs, "Chart Data");
-        }
-      }
-
-      XLSX.writeFile(wb, `dashboard-${Date.now()}.xlsx`);
-      toast.success("Excel file downloaded successfully!");
-    } catch (error) {
-      console.error("Excel export failed:", error);
-      toast.error("Failed to export as Excel");
-    }
-  };
-
-  const exportToHTML = async () => {
-    if (!dashboardCardRef.current) return;
-
-    try {
-      const dashboardHTML = dashboardCardRef.current.outerHTML;
-      const fullHTML = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Dashboard Export - ${new Date().toLocaleDateString()}</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-              padding: 20px;
-              background: white;
-              color: #1e293b;
-            }
-            .dashboard-container {
-              max-width: 1400px;
-              margin: 0 auto;
-            }
-            .kpi-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 16px;
-              margin-bottom: 24px;
-            }
-            .chart-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-              gap: 20px;
-            }
-            .card {
-              border: 1px solid #e2e8f0;
-              border-radius: 8px;
-              padding: 16px;
-              background: white;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            }
-            .badge {
-              display: inline-block;
-              padding: 4px 8px;
-              border-radius: 9999px;
-              font-size: 12px;
-              font-weight: 500;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="dashboard-container">
-            ${dashboardHTML}
-          </div>
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob([fullHTML], { type: "text/html" });
-      downloadFile(blob, `dashboard-${Date.now()}.html`);
-      toast.success("HTML file downloaded successfully!");
-    } catch (error) {
-      console.error("HTML export failed:", error);
-      toast.error("Failed to export as HTML");
-    }
-  };
-
-  const handleDownload = async (format: string) => {
-    if (!dashboardCardRef.current) return;
-
-    setIsExporting(true);
-    setShowDownloadMenu(false);
-
-    try {
-      if (format === "png") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/png");
-        const blob = await (await fetch(image)).blob();
-        downloadFile(blob, `dashboard-${Date.now()}.png`);
-        toast.success("PNG downloaded successfully!");
-      } else if (format === "jpg") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/jpeg", 0.95);
-        const blob = await (await fetch(image)).blob();
-        downloadFile(blob, `dashboard-${Date.now()}.jpg`);
-        toast.success("JPG downloaded successfully!");
-      } else if (format === "pdf") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: "landscape",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(image, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save(`dashboard-${Date.now()}.pdf`);
-        toast.success("PDF downloaded successfully!");
-      } else if (format === "excel") {
-        exportToExcel();
-      } else if (format === "html") {
-        await exportToHTML();
-      } else if (format === "print") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/png");
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Dashboard Report</title>
-              <style>
-                body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-                img { width: 100%; height: auto; }
-              </style>
-            </head>
-            <body>
-              <img src="${image}" />
-              <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
-            </body>
-            </html>
-          `);
-          printWindow.document.close();
-        }
-      }
-    } catch (error) {
-      console.error("Export failed:", error);
-      toast.error("Failed to export. Please try again.");
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  return (
-    <Card className="w-full shadow-2xl bg-white overflow-hidden">
-      <CardHeader className="border-b bg-white px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-indigo-600 shadow-lg">
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-xl font-bold text-slate-800">
-                AI-Generated Dashboard
-              </CardTitle>
-              <p className="text-sm text-slate-600">Complete Overview</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {timestamp && (
-              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
-                <Calendar className="w-3 h-3 mr-1" />
-                {timestamp.toLocaleDateString()}
-              </Badge>
-            )}
-
-            <div className="relative">
-              <Button
-                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                disabled={isExporting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
-              >
-                {isExporting ? (
-                  <>
-                    <Download className="w-4 h-4 mr-2 animate-bounce" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </>
-                )}
-              </Button>
-
-              {showDownloadMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowDownloadMenu(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
-                    <div className="p-2">
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">
-                        IMAGE
-                      </div>
-                      <button
-                        onClick={() => handleDownload("png")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                          <Image className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            PNG
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            High quality image
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => handleDownload("jpg")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                          <Image className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            JPG
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Compressed image
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
-                        DOCUMENT
-                      </div>
-                      <button
-                        onClick={() => handleDownload("pdf")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-red-100 rounded-lg mr-3">
-                          <FileText className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            PDF
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Professional document
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => handleDownload("html")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-orange-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-orange-100 rounded-lg mr-3">
-                          <FileJson className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            HTML
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Web page format
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
-                        DATA
-                      </div>
-                      <button
-                        onClick={() => handleDownload("excel")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-green-100 rounded-lg mr-3">
-                          <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            Excel
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Spreadsheet data
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <button
-                        onClick={() => handleDownload("print")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-gray-100 rounded-lg mr-3">
-                          <Printer className="w-4 h-4 text-gray-700" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            Print
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Send to printer
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent ref={dashboardCardRef} className="p-6">
-        {showLoader ? (
-          <div className="min-h-[600px] flex items-center justify-center">
-            <SequentialLoader />
-          </div>
-        ) : dashboardData ? (
-          <div className="space-y-6">
-            {dashboardData.kpis && dashboardData.kpis.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  Key Performance Indicators
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {dashboardData.kpis.map((kpi: any, i: number) =>
-                    renderKPICard(kpi, i),
-                  )}
-                </div>
-              </div>
-            )}
-
-            {dashboardData.charts && dashboardData.charts.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <BarChart className="w-5 h-5 text-indigo-600" />
-                  Visualizations
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {dashboardData.charts.map((chart: any, i: number) =>
-                    renderChart(chart, i),
-                  )}
-                </div>
-              </div>
-            )}
-
-            {(!dashboardData.kpis || dashboardData.kpis.length === 0) &&
-              (!dashboardData.charts || dashboardData.charts.length === 0) && (
-                <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-                  <div className="p-4 rounded-full bg-slate-200 mb-4">
-                    <BarChart className="w-12 h-12" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-600 mb-1">
-                    No Dashboard Data Available
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Generate a dashboard to see all components
-                  </p>
-                </div>
-              )}
-          </div>
-        ) : (
-          <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
-            <div className="p-4 rounded-full bg-slate-200 mb-4">
-              <BarChart className="w-12 h-12" />
-            </div>
-            <p className="text-sm font-semibold text-slate-600 mb-1">
-              No Dashboard Data Available
-            </p>
-            <p className="text-xs text-slate-500">
-              Generate a dashboard to see all components
-            </p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// ==================== INTERFACES ====================
-
-interface UploadedFile {
-  name: string;
-  size: number;
-  type: string;
-  uploadedAt: Date;
-  isExisting?: boolean;
-}
-
-interface DatabaseFile {
-  id: string;
-  name: string;
-  icon: string;
-}
-
+// ==================== MESSAGE INTERFACE ====================
 interface Message {
   id: string;
   type: "user" | "bot";
@@ -886,88 +93,10 @@ interface Message {
   visualRendered?: boolean;
 }
 
-// ==================== NAVIGATION BAR COMPONENT ====================
-
-const NavigationBar = ({
-  userEmail,
-  showUserMenu,
-  setShowUserMenu,
-  handleLogout,
-  handleSettings,
-}: any) => {
-  return (
-    <div className="border-b bg-white p-4 flex items-center justify-between sticky top-0 z-50">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-indigo-600 shadow-lg">
-          <LayoutDashboard className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="font-bold text-slate-800">AI Dashboard Generator</h1>
-          <p className="text-sm text-slate-500">Powered by AI</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        {userEmail && (
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-300 rounded-lg transition-colors shadow-sm"
-            >
-              <User className="w-4 h-4 text-indigo-600" />
-              <span className="text-sm font-medium text-slate-800">
-                {userEmail.split("@")[0]}
-              </span>
-              <ChevronDown
-                className={`w-3 h-3 text-slate-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`}
-              />
-            </button>
-
-            {showUserMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowUserMenu(false)}
-                />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border z-50 overflow-hidden">
-                  <div className="py-1">
-                    <button
-                      onClick={() => {
-                        handleSettings();
-                        setShowUserMenu(false);
-                      }}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                    >
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleLogout();
-                        setShowUserMenu(false);
-                      }}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // ==================== MAIN DASHBOARD CONTENT ====================
-
 const DashboardContent = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const toastShownRef = useRef<string | null>(null);
 
@@ -975,9 +104,7 @@ const DashboardContent = () => {
   const [showFileDialog, setShowFileDialog] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
-  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<
-    string | null
-  >(null);
+  const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [availableFiles, setAvailableFiles] = useState<DatabaseFile[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -991,6 +118,8 @@ const DashboardContent = () => {
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const [hasShownNoFileToast, setHasShownNoFileToast] = useState(false);
 
+  const { uploadFiles, deleteFileByName } = useFileOperations();
+
   const {
     loading,
     hasData,
@@ -999,11 +128,9 @@ const DashboardContent = () => {
     resetDashboard,
   } = useDashboardStore();
 
-  const { uploading, uploadAndGenerate } = useUploadStore();
-  const { deleteFile } = useDeleteFileStore();
+  const { uploading } = useUploadStore();
   const router = useRouter();
 
-  // ===== CHAT STORE INTEGRATION =====
   const {
     currentChatMessages,
     currentDashboardData,
@@ -1012,23 +139,168 @@ const DashboardContent = () => {
     addAssistantMessage,
   } = useChatStore();
 
-  // ✅ FIX: Sync messages from chat store
+  // Helper function to safely format timestamp
+  const formatTimeString = (timestamp: any): string => {
+    try {
+      let dateObj = timestamp;
+      if (!(dateObj instanceof Date)) {
+        dateObj = new Date(timestamp);
+      }
+      if (isNaN(dateObj.getTime())) {
+        return "Invalid time";
+      }
+      return dateObj.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return "Invalid time";
+    }
+  };
+
+  // ==================== PERSISTENCE ====================
+  useEffect(() => {
+    const stateToSave = {
+      uploadedFiles,
+      selectedFiles,
+      availableFiles,
+      inputValue,
+      lastQuery,
+    };
+    localStorage.setItem('dashboard_persisted_state', JSON.stringify(stateToSave));
+  }, [uploadedFiles, selectedFiles, availableFiles, inputValue, lastQuery]);
+
+  useEffect(() => {
+    const savedState = localStorage.getItem('dashboard_persisted_state');
+    if (savedState) {
+      try {
+        const parsed = JSON.parse(savedState);
+        
+        if (Array.isArray(parsed.uploadedFiles)) {
+          const restoredUploadedFiles = parsed.uploadedFiles.map((file: any) => ({
+            ...file,
+            uploadedAt: new Date(file.uploadedAt)
+          }));
+          setUploadedFiles(restoredUploadedFiles);
+        }
+        
+        if (Array.isArray(parsed.selectedFiles)) {
+          setSelectedFiles(parsed.selectedFiles);
+        }
+        
+        if (Array.isArray(parsed.availableFiles)) {
+          setAvailableFiles(parsed.availableFiles);
+        }
+        
+        if (typeof parsed.inputValue === 'string') {
+          setInputValue(parsed.inputValue);
+        }
+        
+        if (typeof parsed.lastQuery === 'string') {
+          setLastQuery(parsed.lastQuery);
+        }
+      } catch (error) {
+        console.error('Failed to restore persisted state:', error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        const messagesToSave = messages.map(msg => {
+          let timestamp = msg.timestamp;
+          if (!(timestamp instanceof Date)) {
+            timestamp = new Date(timestamp);
+          }
+          
+          return {
+            ...msg,
+            timestamp: timestamp.toISOString()
+          };
+        });
+        localStorage.setItem('dashboard_messages', JSON.stringify(messagesToSave));
+      }
+    } catch (error) {
+      console.error('Failed to save messages:', error);
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('dashboard_messages');
+    if (savedMessages) {
+      try {
+        const parsed = JSON.parse(savedMessages);
+        if (Array.isArray(parsed)) {
+          const restoredMessages = parsed.map((msg: any) => {
+            let timestamp;
+            if (msg.timestamp) {
+              if (typeof msg.timestamp === 'string') {
+                timestamp = new Date(msg.timestamp);
+              } else if (typeof msg.timestamp === 'number') {
+                timestamp = new Date(msg.timestamp);
+              } else {
+                timestamp = new Date();
+              }
+            } else {
+              timestamp = new Date();
+            }
+            
+            return {
+              ...msg,
+              timestamp: timestamp,
+              id: msg.id || `msg-${Date.now()}-${Math.random()}`,
+              type: msg.type || 'bot',
+              content: msg.content || '',
+            };
+          });
+          setMessages(restoredMessages);
+        }
+      } catch (error) {
+        console.error('Failed to restore messages:', error);
+        localStorage.removeItem('dashboard_messages');
+      }
+    }
+  }, []);
+
+  // ===== CHAT STORE SYNC =====
   useEffect(() => {
     if (currentChatMessages && currentChatMessages.length > 0) {
-      const convertedMessages: Message[] = currentChatMessages.map((msg) => ({
-        id: msg.id,
-        type: msg.role === "user" ? "user" : "bot",
-        content: msg.content,
-        timestamp: msg.timestamp,
-        files: msg.files,
-        dashboardData: msg.response,
-        visualRendered: msg.role === "assistant" && !!msg.response,
-      }));
-      setMessages(convertedMessages);
+      const convertedMessages: Message[] = currentChatMessages.map((msg) => {
+        let timestamp = msg.timestamp;
+        if (!(timestamp instanceof Date)) {
+          if (typeof timestamp === 'string') {
+            timestamp = new Date(timestamp);
+          } else if (typeof timestamp === 'number') {
+            timestamp = new Date(timestamp);
+          } else {
+            timestamp = new Date();
+          }
+        }
+        
+        return {
+          id: msg.id,
+          type: msg.role === "user" ? "user" : "bot",
+          content: msg.content,
+          timestamp: timestamp,
+          files: msg.files,
+          dashboardData: msg.response,
+          visualRendered: msg.role === "assistant" && !!msg.response,
+        };
+      });
+      
+      if (JSON.stringify(convertedMessages.map(m => m.id)) !== JSON.stringify(messages.map(m => m.id))) {
+        setMessages(convertedMessages);
+      }
+      
+      if (currentDashboardData) {
+        console.log("📊 Loaded dashboard data from chat history");
+      }
     } else {
       setMessages([]);
     }
-  }, [currentChatMessages]);
+  }, [currentChatMessages, currentDashboardData]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1037,57 +309,43 @@ const DashboardContent = () => {
   useEffect(() => {
     const email = localStorage.getItem("user_email") || "";
     setUserEmail(email);
-    loadExistingFiles();
+    loadInitialFiles();
   }, []);
 
-// ✅ FIX: Handle dashboard data ready - with better duplicate prevention
-useEffect(() => {
-  if (hasData && dashboardData && isLoading && pendingQuery) {
-    console.log(
-      "✅ Dashboard data is ready! Adding bot message with data:",
-      dashboardData,
-    );
+  const loadInitialFiles = async () => {
+    const files = await loadExistingFiles();
+    setUploadedFiles(files);
+    setAvailableFiles(convertToDatabaseFiles(files));
+  };
 
-    // Better duplicate check: look at recent bot messages (last 30 seconds)
-    const now = new Date().getTime();
-    const recentBotMessages = messages.filter(
-      msg => msg.type === "bot" && 
-      (now - msg.timestamp.getTime()) < 30000 // last 30 seconds
-    );
-    
-    // Check if there's already a bot message for this pending query
-    const hasExistingBotMessage = recentBotMessages.some(
-      msg => msg.content.includes("Dashboard generated") || 
-             msg.content.includes(pendingQuery)
-    );
-
-    if (!hasExistingBotMessage) {
-      // Get current message ID from dashboard store for logging
-      const currentMessageId = useDashboardStore.getState().currentMessageId;
-      
-      addAssistantMessage(
-        "Dashboard generated successfully! ✨",
-        dashboardData,
+  useEffect(() => {
+    if (hasData && dashboardData && isLoading && pendingQuery) {
+      const now = new Date().getTime();
+      const recentBotMessages = messages.filter(
+        msg => msg.type === "bot" && 
+        (now - msg.timestamp.getTime()) < 30000
       );
       
-      console.log("✅ Bot message added with message ID:", currentMessageId);
-    } else {
-      console.log("⏭️ Skipping duplicate bot message");
-    }
+      const hasExistingBotMessage = recentBotMessages.some(
+        msg => msg.content.includes("Dashboard generated") || 
+               msg.content.includes(pendingQuery)
+      );
 
-    setPendingQuery(null);
-    setIsLoading(false);
-    toast.success("Dashboard ready!");
-    toastShownRef.current = null;
-  }
-}, [
-  hasData,
-  dashboardData,
-  isLoading,
-  pendingQuery,
-  addAssistantMessage,
-  messages,
-]);
+      if (!hasExistingBotMessage) {
+        addAssistantMessage(
+          "Dashboard generated successfully! ✨",
+          dashboardData,
+        );
+        setPendingQuery(null);
+        setIsLoading(false);
+        toast.success("Dashboard ready!");
+        toastShownRef.current = null;
+      } else {
+        setPendingQuery(null);
+        setIsLoading(false);
+      }
+    }
+  }, [hasData, dashboardData, isLoading, pendingQuery, addAssistantMessage, messages]);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -1123,109 +381,7 @@ useEffect(() => {
     };
   }, []);
 
-  useEffect(() => {
-    async function loadDataSources() {
-      try {
-        const data = await fetchDataSources();
-        const filesWithIcons = Array.isArray(data)
-          ? data.map((ds: any) => {
-              const fileName =
-                typeof ds === "string" ? ds : ds.name || "Unknown";
-              return {
-                id: fileName,
-                name: fileName,
-                icon: fileName.endsWith(".csv")
-                  ? "📄"
-                  : fileName.endsWith(".xlsx")
-                    ? "📊"
-                    : fileName.endsWith(".json")
-                      ? "📋"
-                      : "📁",
-              };
-            })
-          : [];
-        setAvailableFiles(filesWithIcons);
-      } catch (error) {
-        console.error("Failed to load data sources:", error);
-      }
-    }
-    loadDataSources();
-  }, [uploadedFiles]);
-
   const [userEmail, setUserEmail] = useState<string>("");
-  const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const loadExistingFiles = async () => {
-    try {
-      const existingFiles = await fetchDataSources();
-
-      if (!Array.isArray(existingFiles)) {
-        setUploadedFiles([]);
-        return;
-      }
-
-      const formattedFiles: UploadedFile[] = existingFiles.map((file: any) => {
-        if (typeof file === "string") {
-          return {
-            name: file,
-            size: 0,
-            type: getFileTypeFromName(file),
-            uploadedAt: new Date(),
-            isExisting: true,
-          };
-        }
-
-        return {
-          name:
-            file.name || file.filename || file.originalname || "Unknown file",
-          size: file.size || file.fileSize || 0,
-          type:
-            file.type ||
-            file.mimetype ||
-            getFileTypeFromName(file.name || file.filename || ""),
-          uploadedAt:
-            file.uploadedAt || file.createdAt || file.uploadDate
-              ? new Date(file.uploadedAt || file.createdAt || file.uploadDate)
-              : new Date(),
-          isExisting: true,
-        };
-      });
-
-      setUploadedFiles(formattedFiles);
-
-      const filesWithIcons = formattedFiles.map((file) => ({
-        id: file.name,
-        name: file.name,
-        icon: file.name.endsWith(".csv")
-          ? "📄"
-          : file.name.endsWith(".xlsx")
-            ? "📊"
-            : file.name.endsWith(".json")
-              ? "📋"
-              : "📁",
-      }));
-      setAvailableFiles(filesWithIcons);
-    } catch (error: any) {
-      console.error("Failed to load existing files:", error);
-    }
-  };
-
-  const getFileTypeFromName = (filename: string): string => {
-    if (!filename) return "application/octet-stream";
-    const ext = filename.split(".").pop()?.toLowerCase();
-    switch (ext) {
-      case "csv":
-        return "text/csv";
-      case "xlsx":
-        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-      case "xls":
-        return "application/vnd.ms-excel";
-      case "json":
-        return "application/json";
-      default:
-        return "application/octet-stream";
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem("user_email");
@@ -1269,9 +425,7 @@ useEffect(() => {
     }
   };
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -1282,32 +436,13 @@ useEffect(() => {
     }
 
     try {
-      await uploadAndGenerate(userEmail, Array.from(files));
-
-      const newFiles: UploadedFile[] = Array.from(files).map((file) => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        uploadedAt: new Date(),
-      }));
-
+      const newFiles = await uploadFiles(userEmail, Array.from(files));
       setUploadedFiles((prev) => [...prev, ...newFiles]);
 
-      const newAvailableFiles = Array.from(files).map((file) => ({
-        id: file.name,
-        name: file.name,
-        icon: file.name.endsWith(".csv")
-          ? "📄"
-          : file.name.endsWith(".xlsx")
-            ? "📊"
-            : file.name.endsWith(".json")
-              ? "📋"
-              : "📁",
-      }));
-
+      const newAvailableFiles = convertToDatabaseFiles(newFiles);
       setAvailableFiles((prev) => [...prev, ...newAvailableFiles]);
 
-      const fileNames = Array.from(files).map((f) => f.name);
+      const fileNames = newFiles.map((f) => f.name);
       setSelectedFiles((prev) => [...prev, ...fileNames]);
 
       setRecentlyUploadedFile(files[0].name);
@@ -1330,7 +465,7 @@ useEffect(() => {
 
   const handleDeleteFile = async (filename: string) => {
     try {
-      await deleteFile(filename);
+      await deleteFileByName(filename);
       setUploadedFiles((prev) => prev.filter((file) => file.name !== filename));
       setAvailableFiles((prev) => prev.filter((file) => file.id !== filename));
       setSelectedFiles((prev) => prev.filter((file) => file !== filename));
@@ -1339,14 +474,6 @@ useEffect(() => {
       console.error("Delete error:", error);
       toast.error(`Failed to delete file: ${error.message}`);
     }
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const getFileNames = () => {
@@ -1374,63 +501,53 @@ useEffect(() => {
   };
 
   const handleSendMessageWithQuery = async (queryText: string) => {
-  if (!queryText.trim()) {
-    toast.error("Please enter a query");
-    return;
-  }
-
-  const fileNames = getFileNames();
-  if (!fileNames) {
-    if (!hasShownNoFileToast) {
-      toast.warning("Please select files before sending a query");
-      setHasShownNoFileToast(true);
-      setTimeout(() => setHasShownNoFileToast(false), 2000);
+    if (!queryText.trim()) {
+      toast.error("Please enter a query");
+      return;
     }
-    return;
-  }
 
-  // Get current chat ID and message count from chat store
-  const { currentChatId, currentChatMessages } = useChatStore.getState();
-  
-  // Calculate next message ID based on existing messages
-  // Messages are stored as user+assistant pairs, so divide by 2 and add 1
-  const nextMessageId = (Math.ceil((currentChatMessages.length + 1) / 2)).toString();
+    const fileNames = getFileNames();
+    if (!fileNames) {
+      if (!hasShownNoFileToast) {
+        toast.warning("Please select files before sending a query");
+        setHasShownNoFileToast(true);
+        setTimeout(() => setHasShownNoFileToast(false), 2000);
+      }
+      return;
+    }
 
-  // Update dashboard store with correct chat ID and next message ID
-  if (currentChatId) {
-    useDashboardStore.getState().setChatInfo(currentChatId, nextMessageId);
-    console.log(`📝 Setting message ID to ${nextMessageId} for new query`);
-  }
+    const { currentChatId, currentChatMessages } = useChatStore.getState();
+    const nextMessageId = (Math.ceil((currentChatMessages.length + 1) / 2)).toString();
 
-  // Add user message to chat store
-  addUserMessage(queryText.trim(), selectedFiles);
+    if (currentChatId) {
+      useDashboardStore.getState().setChatInfo(currentChatId, nextMessageId);
+    }
 
-  setLastQuery(queryText.trim());
-  setPendingQuery(queryText.trim());
-  setIsLoading(true);
-  setInputValue("");
+    addUserMessage(queryText.trim(), selectedFiles);
 
-  abortControllerRef.current = new AbortController();
+    setLastQuery(queryText.trim());
+    setPendingQuery(queryText.trim());
+    setIsLoading(true);
+    setInputValue("");
 
-  const cleanFileNames = selectedFiles
-    .map((file) => file.replace(/\.csv$/i, ""))
-    .join(",");
+    abortControllerRef.current = new AbortController();
 
-  try {
-    await fetchDashboardData(queryText.trim(), cleanFileNames);
-  } catch (error) {
-    console.error("Error fetching dashboard:", error);
-    addAssistantMessage(
-      "Failed to generate dashboard. Please try again.",
-      null,
-    );
-    setPendingQuery(null);
-    setIsLoading(false);
-    toast.error("Failed to generate dashboard.");
-    abortControllerRef.current = null;
-    toastShownRef.current = null;
-  }
-};
+    const cleanFileNames = selectedFiles
+      .map((file) => file.replace(/\.csv$/i, ""))
+      .join(",");
+
+    try {
+      await fetchDashboardData(queryText.trim(), cleanFileNames);
+    } catch (error) {
+      console.error("Error fetching dashboard:", error);
+      addAssistantMessage("Failed to generate dashboard. Please try again.", null);
+      setPendingQuery(null);
+      setIsLoading(false);
+      toast.error("Failed to generate dashboard.");
+      abortControllerRef.current = null;
+      toastShownRef.current = null;
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) {
@@ -1448,7 +565,6 @@ useEffect(() => {
       return;
     }
 
-    // ✅ Add user message to chat store
     addUserMessage(inputValue.trim(), selectedFiles);
 
     setLastQuery(inputValue.trim());
@@ -1466,13 +582,7 @@ useEffect(() => {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
     } catch (error) {
       console.error("Error fetching dashboard:", error);
-
-      // ✅ Add error message
-      addAssistantMessage(
-        "Failed to generate dashboard. Please try again.",
-        null,
-      );
-
+      addAssistantMessage("Failed to generate dashboard. Please try again.", null);
       setPendingQuery(null);
       setIsLoading(false);
       toast.error("Failed to generate dashboard.");
@@ -1482,50 +592,43 @@ useEffect(() => {
   };
 
   const handleRetry = async () => {
-  if (!lastQuery) return;
-  
-  if (selectedFiles.length === 0) {
-    if (!hasShownNoFileToast) {
-      toast.warning("Please select files before retrying");
-      setHasShownNoFileToast(true);
-      setTimeout(() => setHasShownNoFileToast(false), 2000);
+    if (!lastQuery) return;
+    
+    if (selectedFiles.length === 0) {
+      if (!hasShownNoFileToast) {
+        toast.warning("Please select files before retrying");
+        setHasShownNoFileToast(true);
+        setTimeout(() => setHasShownNoFileToast(false), 2000);
+      }
+      return;
     }
-    return;
-  }
 
-  // Get current chat ID and message count from chat store
-  const { currentChatId, currentChatMessages } = useChatStore.getState();
-  
-  // Calculate next message ID for retry
-  // For retry, we increment the message ID to create a new message
-  const retryMessageId = (Math.ceil((currentChatMessages.length + 1) / 2) + 1).toString();
-  
-  // Update dashboard store with new message ID for retry
-  if (currentChatId) {
-    useDashboardStore.getState().setChatInfo(currentChatId, retryMessageId);
-    console.log(`🔄 Retry with new message ID: ${retryMessageId}`);
-  }
+    const { currentChatId, currentChatMessages } = useChatStore.getState();
+    const retryMessageId = (Math.ceil((currentChatMessages.length + 1) / 2) + 1).toString();
+    
+    if (currentChatId) {
+      useDashboardStore.getState().setChatInfo(currentChatId, retryMessageId);
+    }
 
-  // Add retry message to chat (mark it as a retry)
-  addUserMessage(` ${lastQuery}`, selectedFiles);
-  
-  setPendingQuery(lastQuery);
-  setIsLoading(true);
+    addUserMessage(` ${lastQuery}`, selectedFiles);
+    
+    setPendingQuery(lastQuery);
+    setIsLoading(true);
 
-  const cleanFileNames = selectedFiles
-    .map((file) => file.replace(/\.csv$/i, ""))
-    .join(",");
+    const cleanFileNames = selectedFiles
+      .map((file) => file.replace(/\.csv$/i, ""))
+      .join(",");
 
-  try {
-    await fetchDashboardData(lastQuery, cleanFileNames);
-  } catch (error) {
-    console.error("Error retrying dashboard:", error);
-    addAssistantMessage("Retry failed. Please try again.", null);
-    setPendingQuery(null);
-    setIsLoading(false);
-    toast.error("Retry failed.");
-  }
-};
+    try {
+      await fetchDashboardData(lastQuery, cleanFileNames);
+    } catch (error) {
+      console.error("Error retrying dashboard:", error);
+      addAssistantMessage("Retry failed. Please try again.", null);
+      setPendingQuery(null);
+      setIsLoading(false);
+      toast.error("Retry failed.");
+    }
+  };
 
   const copyToClipboard = (text: string, messageId: string) => {
     navigator.clipboard.writeText(text);
@@ -1543,6 +646,10 @@ useEffect(() => {
     });
   };
 
+  const clearSelectedFiles = () => {
+    setSelectedFiles([]);
+  };
+
   return (
     <div className="h-full flex flex-col bg-white">
       <input
@@ -1555,7 +662,7 @@ useEffect(() => {
       />
 
       {messages.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center bg-white backdrop-blur-xl">
+        <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-white via-blue-50/30 to-white">
           <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-6">
             <div className="mb-8 w-20 h-20 relative">
               <svg
@@ -1688,10 +795,10 @@ useEffect(() => {
               </motion.div>
             </div>
 
-            <div className="w-full bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
+            <div className="w-full backdrop-blur-xl bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
               <div className="p-4 pb-0 relative">
                 <textarea
-                  ref={inputRef}
+                  ref={fileInputRef}
                   placeholder="Ask me anything..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
@@ -1802,16 +909,11 @@ useEffect(() => {
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
                           <span className="text-xs text-slate-500">
-                            {message.timestamp.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatTimeString(message.timestamp)}
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 hover:bg-gray-800"
+                        <button
+                          className="h-6 w-6 hover:bg-gray-800 rounded flex items-center justify-center"
                           onClick={() =>
                             copyToClipboard(message.content, message.id)
                           }
@@ -1822,7 +924,7 @@ useEffect(() => {
                           ) : (
                             <Copy className="h-3 w-3 text-gray-300" />
                           )}
-                        </Button>
+                        </button>
                       </div>
                     </>
                   ) : (
@@ -1845,16 +947,11 @@ useEffect(() => {
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
                           <span className="text-xs text-slate-500">
-                            {message.timestamp.toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatTimeString(message.timestamp)}
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 hover:bg-gray-200"
+                        <button
+                          className="h-6 w-6 hover:bg-gray-200 rounded flex items-center justify-center"
                           onClick={() =>
                             copyToClipboard(message.content, message.id)
                           }
@@ -1865,383 +962,65 @@ useEffect(() => {
                           ) : (
                             <Copy className="h-3 w-3 text-gray-500" />
                           )}
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   )}
                 </div>
               ))}
 
-              {isLoading && !hasData && (
-                <div className="space-y-2">
-                  <div className="inline-block rounded-2xl px-5 py-3">
-                    <div className="flex items-center gap-2 italic text-gray-600">
-                      <div className="text-emerald-400">
-                        <Brain className="w-5 h-5" />
-                      </div>
-                      <RotatingTextLoader />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {isLoading && !hasData && <ThinkingIndicator />}
               <div ref={messagesEndRef} />
             </div>
           </div>
 
           <div className="bg-transparent sticky bottom-0 mt-auto">
-            <div className="w-full mx-auto px-6 py-3 backdrop-blur-sm">
-              <div className="backdrop-blur-xl bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-3xl mx-auto">
-                <div className="p-4 pb-0 relative">
-                  <textarea
-                    ref={inputRef}
-                    placeholder="Ask me anything..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="w-full text-gray-700 bg-transparent text-base outline-none placeholder:text-gray-400 pr-20 resize-none"
-                    rows={2}
-                  />
-                </div>
-
-                <div className="px-4 py-3 flex items-center gap-3 border-t border-white/30">
-                  <button
-                    onClick={() => setShowFileDialog(true)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-colors flex-shrink-0"
-                    title="Attach files"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-
-                  {selectedFiles.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                      {selectedFiles.map((fileId) => {
-                        const file = availableFiles.find(
-                          (f) => f.id === fileId,
-                        );
-                        return (
-                          <div
-                            key={fileId}
-                            className="flex items-center gap-2 bg-gray-50/70 py-1 px-2 rounded-md border border-gray-200/50 flex-shrink-0"
-                          >
-                            <span className="text-md">{file?.icon}</span>
-                            <span className="text-xs text-gray-700 whitespace-nowrap">
-                              {file?.name}
-                            </span>
-                            <button
-                              onClick={() => toggleFileSelection(fileId)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {selectedFiles.length === 0 && <div className="flex-1" />}
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={toggleSpeechRecognition}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isListening
-                          ? "bg-red-100 text-red-600 hover:bg-red-200"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
-                      }`}
-                      title={
-                        isListening ? "Stop listening" : "Start voice input"
-                      }
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                    {!isLoading && lastQuery && (
-                      <button
-                        onClick={handleRetry}
-                        className="flex items-center gap-1.5 px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Retry last query"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        <span className="text-sm font-medium">Retry</span>
-                      </button>
-                    )}
-                    {isLoading ? (
-                      <button
-                        onClick={handleStopRequest}
-                        className="w-8 h-8 flex items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors"
-                        title="Stop generation"
-                      >
-                        <CircleStop className="w-4 h-4" />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!inputValue.trim()}
-                        className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${
-                          inputValue.trim()
-                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : "bg-gray-100/70 text-gray-400 cursor-not-allowed"
-                        }`}
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+            <div className="w-full mx-auto px-6 py-3 backdrop-blur-sm bg-transparent">
+              <MessageInput
+                inputValue={inputValue}
+                setInputValue={setInputValue}
+                selectedFiles={selectedFiles}
+                availableFiles={availableFiles}
+                isLoading={isLoading}
+                isListening={isListening}
+                lastQuery={lastQuery}
+                onSendMessage={handleSendMessage}
+                onStopRequest={handleStopRequest}
+                onRetry={handleRetry}
+                onToggleSpeech={toggleSpeechRecognition}
+                onOpenFileDialog={() => setShowFileDialog(true)}
+                onToggleFileSelection={toggleFileSelection}
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* File Dialog */}
-      {showFileDialog && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => setShowFileDialog(false)}
-          />
-          <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl z-50 flex flex-col">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Database className="w-6 h-6 text-slate-600" />
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Select Data Sources
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setShowFileDialog(false)}
-                  className="p-2 hover:bg-slate-100 rounded-md"
-                >
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 flex gap-6 p-6 overflow-hidden">
-              <div className="flex-1 flex flex-col border border-slate-200 rounded-lg">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-slate-800">
-                      Available Files
-                    </h4>
-                    <Badge variant="secondary">
-                      {
-                        availableFiles.filter(
-                          (f) => !selectedFiles.includes(f.id),
-                        ).length
-                      }{" "}
-                      available
-                    </Badge>
-                  </div>
-                </div>
-
-                <ScrollArea className="flex-1 p-4">
-                  <div className="space-y-2">
-                    {availableFiles
-                      .filter((file) => !selectedFiles.includes(file.id))
-                      .map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all group"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <span className="text-lg">{file.icon}</span>
-                            <span className="text-sm text-slate-700 font-medium truncate">
-                              {file.name}
-                            </span>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => toggleFileSelection(file.id)}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteFile(file.id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </ScrollArea>
-
-                <div className="p-4 border-t">
-                  <button
-                    onClick={() => {
-                      setShowFileDialog(false);
-                      setShowFileUploadModal(true);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg"
-                  >
-                    <Upload className="w-5 h-5" />
-                    <span>Upload New File</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 flex flex-col border border-slate-200 rounded-lg">
-                <div className="p-4 border-b">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-slate-800">
-                      Selected Files
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        {selectedFiles.length} selected
-                      </Badge>
-                      {selectedFiles.length > 0 && (
-                        <button
-                          onClick={() => setSelectedFiles([])}
-                          className="text-xs text-slate-500 hover:text-red-600 font-medium px-2 py-1 rounded-md hover:bg-red-50"
-                        >
-                          Clear all
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <ScrollArea className="flex-1 p-4">
-                  {selectedFiles.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center">
-                      <Database className="w-16 h-16 text-slate-300 mb-3" />
-                      <p className="text-base text-slate-500 font-medium">
-                        No files selected
-                      </p>
-                      <p className="text-sm text-slate-400 mt-1">
-                        Choose from available files on the left
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {selectedFiles.map((fileId) => {
-                        const file = availableFiles.find(
-                          (f) => f.id === fileId,
-                        );
-                        return (
-                          <div
-                            key={fileId}
-                            className="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <span className="text-lg">{file?.icon}</span>
-                              <span className="text-sm text-indigo-700 font-medium truncate">
-                                {file?.name}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => toggleFileSelection(fileId)}
-                              className="p-1.5 text-slate-400 hover:text-red-500"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-              </div>
-            </div>
-
-            <div className="p-6 border-t flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowFileDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => setShowFileDialog(false)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* File Upload Modal */}
-      {showFileUploadModal && (
-        <>
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => setShowFileUploadModal(false)}
-          />
-          <div className="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">
-                Upload New File
-              </h3>
-              <button
-                onClick={() => setShowFileUploadModal(false)}
-                className="p-1 hover:bg-slate-100 rounded-md"
-              >
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-
-            {uploadSuccess && recentlyUploadedFile ? (
-              <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
-                <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-green-700 mb-2">
-                  Upload Successful!
-                </h4>
-                <p className="text-green-600">{recentlyUploadedFile}</p>
-              </div>
-            ) : (
-              <>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500"
-                >
-                  <Upload className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium">
-                    Click to upload files
-                  </p>
-                  <p className="text-sm text-slate-500">CSV, Excel, JSON</p>
-                </div>
-
-                {uploading && (
-                  <div className="flex items-center justify-center mt-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                    <span className="ml-2 text-sm text-slate-600">
-                      Uploading...
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex justify-end gap-2 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowFileUploadModal(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+      <FileDialogs
+        showFileDialog={showFileDialog}
+        setShowFileDialog={setShowFileDialog}
+        showFileUploadModal={showFileUploadModal}
+        setShowFileUploadModal={setShowFileUploadModal}
+        availableFiles={availableFiles}
+        selectedFiles={selectedFiles}
+        toggleFileSelection={toggleFileSelection}
+        handleDeleteFile={handleDeleteFile}
+        uploadSuccess={uploadSuccess}
+        recentlyUploadedFile={recentlyUploadedFile}
+        uploading={uploading}
+        fileInputRef={fileInputRef}
+        onFileUpload={handleFileUpload}
+        onClearSelection={clearSelectedFiles}
+        onClose={() => {
+          setShowFileDialog(false);
+          setShowFileUploadModal(false);
+        }}
+      />
     </div>
   );
 };
 
 // ==================== MAIN EXPORT ====================
-
 export function SalesDashboard() {
   const [userEmail, setUserEmail] = useState<string>("");
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -2267,7 +1046,6 @@ export function SalesDashboard() {
     <div className="h-screen flex flex-col bg-white">
       <Toaster />
 
-      {/* TOP NAVIGATION BAR - FULL WIDTH */}
       <NavigationBar
         userEmail={userEmail}
         showUserMenu={showUserMenu}
@@ -2276,12 +1054,8 @@ export function SalesDashboard() {
         handleSettings={handleSettings}
       />
 
-      {/* SIDEBAR + MAIN CONTENT - BELOW NAVBAR */}
       <div className="flex-1 flex min-h-0">
-        {/* CHAT SIDEBAR - IMPORTED FROM NEW FILE */}
         <ChatSidebar />
-
-        {/* MAIN DASHBOARD CONTENT */}
         <div className="flex-1 overflow-y-auto">
           <DashboardContent />
         </div>
