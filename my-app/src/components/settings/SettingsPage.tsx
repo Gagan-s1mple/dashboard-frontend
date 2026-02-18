@@ -18,15 +18,21 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import ReactECharts from "echarts-for-react";
+import { DatePicker } from "../settings/date-picker";
+// import { Select } from "react-day-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
 
 
 export function SettingsPage() {
-  const router = useRouter();
-
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
-  // const [totalTokens, setTotalTokens] = useState<number>(500);
-  // const [remainingTokens, setRemainingTokens] = useState<number>(100);
+const router = useRouter();
+const [userEmail, setUserEmail] = useState<string>("");
+const [userName, setUserName] = useState<string>("");
 const [credits, setCredits] = useState(1);
 const [availableCredits, setAvailableCredits] = useState<number|null>(null);
 const[loadingCredits, setLoadingCredits] = useState(true);
@@ -237,14 +243,7 @@ const fetchAnalytics = async () => {
     if (!response.ok) {
       throw new Error("Failed to fetch analytics")
     }
-//LOCALSTORAGE- CURRENCY 
-    const data = await response.json();
-
-
-
-
-// alert(currency); 
-
+const data = await response.json();
 
 const formattedData = Object.entries(data.daily_usage).map(
   ([date, usage]) => ({
@@ -252,7 +251,7 @@ const formattedData = Object.entries(data.daily_usage).map(
     usage: Number(usage),
   })
 );
-
+//fetxh analytics data
 setAnalyticsData(formattedData);
 
   } catch (error) {
@@ -264,6 +263,7 @@ setAnalyticsData(formattedData);
   console.log("FETCH FUNCTION TRIGGERED");
 };
 
+// chart options
 const getChartOption = () => {
   const dates = analyticsData.map((item) => item.date);
   const usage = analyticsData.map((item) => item.usage);
@@ -319,8 +319,7 @@ useEffect(() => {
   fetchTransactionHistory();
 }, []);
 
-
-
+//data cleaning options
 const handleCheckboxChange = (key: string) => {
   setCleanOptions((prev) => ({
     ...prev,
@@ -336,10 +335,10 @@ const handleCleanSubmit = () => {
     <>
     <Script src="https://checkout.razorpay.com/v1/checkout.js" />
     <div className=" p-4 md:p-6">
-      <div className="w-full h-full mx-auto">
+      <div className="w-full  mx-auto">
         {/* Header */}
-       <div className="flex justify-end mb-8">
-  <div className="flex flex-col items-end gap-3">
+       <div className="flex justify-end mb-3">
+  <div className="flex flex-col items-end gap-2">
 
    
 
@@ -363,7 +362,7 @@ const handleCleanSubmit = () => {
        <div className="w-full flex flex-col md:flex-row gap-5 flex-wrap">
 
           {/* User Profile Card */}
-          <div className="w-full md:w-[400px]">
+          <div className="w-full md:w-[400px] mx-auto">
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -376,8 +375,8 @@ const handleCleanSubmit = () => {
               <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                 <div>
                   {/* <p className="text-sm font-medium text-slate-600">Logged in as</p> */}
-                   <p className="text-lg font-semibold text-slate-800">Name-{userName}</p>
-                  <p className="text-lg font-semibold text-slate-800">{userEmail}</p>
+                   <p className="text-md font-semibold text-slate-800"><span className="text-blue-400">Name : </span>{userName}</p>
+                  <p className="text-md font-semibold text-slate-800">{userEmail}</p>
                  
                 </div>
                 {/* <div className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
@@ -403,9 +402,7 @@ const handleCleanSubmit = () => {
       {/* Current File */}
       <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
         <p className="text-sm text-slate-500">Choose  File to upload</p>
-        {/* <p className="font-medium text-slate-800 mt-1">
-          {selectedFile}
-        </p> */}
+  
       </div>
 
       {/* Cleaning Options */}
@@ -465,7 +462,7 @@ const handleCleanSubmit = () => {
           
 {/* {credits card} */}
 <div className="w-full max-w-4xl mx-auto">
-  <Card className="rounded-3xl border border-slate-200 shadow-xl bg-white overflow-hidden">
+  <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden">
     <CardContent className="pt-5 pb-8 px-4 md:px-8">
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
 
@@ -516,7 +513,7 @@ const handleCleanSubmit = () => {
 
 <Dialog>
   <DialogTrigger asChild>
-    <Button className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-4 shadow-md">
+    <Button className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400">
       Add Credits
     </Button>
   </DialogTrigger>
@@ -580,8 +577,6 @@ const handleCleanSubmit = () => {
 </Dialog>
 
         </div>
-
-        {/* RIGHT SIDE – History + Analytics */}
         <div className="space-y-6">
 
          <div>
@@ -621,16 +616,13 @@ const handleCleanSubmit = () => {
 >
   {showAnalytics ? "Hide Usage Analytics" : "View Usage Analytics"}
 </Button>
+</div>
+</div>
+</CardContent>
+</Card>
 
-
-        </div>
-
-      </div>
-
-    </CardContent>
-  </Card>
   {showAnalytics && (
- <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg bg-white shadow-xl overflow-hidden">
+ <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg shadow-xl overflow-hidden">
 
     <CardHeader className="flex flex-row items-center justify-between">
       <div>
@@ -641,66 +633,48 @@ const handleCleanSubmit = () => {
 
   {/* Range Type Select */}
   <div className="w-full md:w-40">
-    <select
-      value={rangeType}
-      onChange={(e) => setRangeType(e.target.value as "month" | "year")}
-      className="
-        w-full
-        border border-slate-200
-        rounded-xl
-        px-4 py-2
-        text-sm
-        focus:outline-none
-        focus:ring-2 focus:ring-slate-300
-      "
-    >
-      <option value="month">Month</option>
-      <option value="year">Year</option>
-    </select>
+   <Select
+  value={rangeType}
+  onValueChange={(value) =>
+    setRangeType(value as "month" | "year")
+  }
+>
+  <SelectTrigger className="w-full rounded-xl">
+    <SelectValue placeholder="Select range type" />
+  </SelectTrigger>
+
+  <SelectContent>
+    <SelectItem value="month">Month</SelectItem>
+    <SelectItem value="year">Year</SelectItem>
+  </SelectContent>
+</Select>
+
   </div>
 
   {/* Date Range Inputs */}
   {rangeType === "month" && (
     <>
       <div className="w-full md:w-auto">
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          className="
-            w-full
-            border border-slate-200
-            rounded-xl
-            px-4 py-2
-            text-sm
-            focus:outline-none
-            focus:ring-2 focus:ring-slate-300
-          "
-        />
-      </div>
+       <DatePicker
+  value={startDate}
+  onChange={setStartDate}
+  placeholder="Select start date"
+/>
+</div>
 
-      <div className="w-full md:w-auto">
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          className="
-            w-full
-            border border-slate-200
-            rounded-xl
-            px-4 py-2
-            text-sm
-            focus:outline-none
-            focus:ring-2 focus:ring-slate-300
-          "
-        />
-      </div>
-    </>
-  )}
+<div className="w-full md:w-auto">
+  <DatePicker
+  value={endDate}
+  onChange={setEndDate}
+  placeholder="Select end date"
+/>
+</div>
+</>
+)}
 
   {/* Load Button */}
-  <div className="w-full md:w-auto">
-    <Button
+<div className="w-full md:w-auto">
+  <Button
       type="button"
       onClick={fetchAnalytics}
       className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
@@ -708,21 +682,18 @@ const handleCleanSubmit = () => {
       Load Analytics
     </Button>
   </div>
-
+</div>
+<CardDescription>
+  usage trends for your credit consumption
+</CardDescription>
 </div>
 
-
-        <CardDescription>
-          usage trends for your credit consumption
-        </CardDescription>
-      </div>
-
-      {/* Toggle Buttons */}
-      <div className="flex gap-2">
-        <Button
+<div className="flex gap-2">
+  <Button
           size="sm"
           variant={chartType === "bar" ? "default" : "outline"}
           onClick={() => setChartType("bar")}
+          className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
         >
           <BarChart className="w-4 h-4" />
         </Button>
@@ -730,6 +701,7 @@ const handleCleanSubmit = () => {
           size="sm"
           variant={chartType === "line" ? "default" : "outline"}
           onClick={() => setChartType("line")}
+          className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
         >
           <LineChart className="w-4 h-4" />
         </Button>
@@ -746,76 +718,6 @@ const handleCleanSubmit = () => {
 )}
 
 </div>
-
-
-{/* 
-          Preferences Card */}
-          {/* <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Preferences
-              </CardTitle>
-              <CardDescription>Customize your experience</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-slate-800">Email Notifications</p>
-                  <p className="text-sm text-slate-600">Receive updates about your dashboard</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-slate-800">Dark Mode</p>
-                  <p className="text-sm text-slate-600">Switch to dark theme</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
-            </CardContent>
-          </Card> */}
-
-          {/* System Card */}
-          {/* <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                System
-              </CardTitle>
-              <CardDescription>Application information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-medium text-slate-600">Version</p>
-                  <p className="font-semibold text-slate-800">1.0.0</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg">
-                  <p className="text-sm font-medium text-slate-600">Last Updated</p>
-                  <p className="font-semibold text-slate-800">March 2024</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 border-slate-300">
-                  <Globe className="w-4 h-4 mr-2" />
-                  Documentation
-                </Button>
-                <Button variant="outline" className="flex-1 border-slate-300">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Privacy Policy
-                </Button>
-              </div>
-            </CardContent>
-          </Card> */}
         </div>
       </div>
     </div>
