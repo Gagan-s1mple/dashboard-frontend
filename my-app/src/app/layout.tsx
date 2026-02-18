@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "../components/ui/sonner";
 import AuthHydration from "../components/auth/auth-hydration";
 import "./globals.css";
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

@@ -39,7 +39,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 
 // Import ReactMarkdown for markdown formatting
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown from "react-markdown";
 
 // Import shadcn components
 import { Textarea } from "../ui/textarea";
@@ -242,18 +242,19 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
       if (!hasExistingBotMessage) {
         // Use the content from dashboardData if available, otherwise use default message
-        const assistantMessage = dashboardData.content || "Dashboard generated successfully! ✨";
+        const assistantMessage =
+          dashboardData.content || "Dashboard generated successfully! ✨";
         addAssistantMessage(assistantMessage, dashboardData);
         setPendingQuery(null);
         setIsLoading(false);
-        
+
         // Show only one toast
         if (toastId) {
           toast.dismiss(toastId);
         }
         const id = toast.success("Dashboard ready!");
         setToastId(id);
-        
+
         toastShownRef.current = null;
       } else {
         setPendingQuery(null);
@@ -289,7 +290,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
-        
+
         if (toastId) {
           toast.dismiss(toastId);
         }
@@ -314,13 +315,13 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       abortControllerRef.current.abort();
       setIsLoading(false);
       setPendingQuery(null);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
       const id = toast.info("Request cancelled");
       setToastId(id);
-      
+
       toastShownRef.current = null;
     }
   };
@@ -330,7 +331,9 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       if (toastId) {
         toast.dismiss(toastId);
       }
-      const id = toast.error("Speech recognition is not supported in your browser.");
+      const id = toast.error(
+        "Speech recognition is not supported in your browser.",
+      );
       setToastId(id);
       return;
     }
@@ -342,7 +345,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       try {
         recognitionRef.current.start();
         setIsListening(true);
-        
+
         if (toastId) {
           toast.dismiss(toastId);
         }
@@ -350,7 +353,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         setToastId(id);
       } catch (error) {
         console.error("Error starting speech recognition:", error);
-        
+
         if (toastId) {
           toast.dismiss(toastId);
         }
@@ -388,11 +391,13 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
       setRecentlyUploadedFile(files[0].name);
       setUploadSuccess(true);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
-      const id = toast.success(`Uploaded ${files.length} file(s) successfully!`);
+      const id = toast.success(
+        `Uploaded ${files.length} file(s) successfully!`,
+      );
       setToastId(id);
 
       // Don't auto-close, let user select files
@@ -412,18 +417,22 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const handleDeleteFile = async (filename: string) => {
     try {
       await deleteFileByName(filename);
-      
-      const updatedFiles = uploadedFiles.filter((file) => file.name !== filename);
+
+      const updatedFiles = uploadedFiles.filter(
+        (file) => file.name !== filename,
+      );
       setUploadedFiles(updatedFiles);
       setStoreUploadedFiles(updatedFiles);
-      
-      const updatedAvailableFiles = availableFiles.filter((file) => file.id !== filename);
+
+      const updatedAvailableFiles = availableFiles.filter(
+        (file) => file.id !== filename,
+      );
       setAvailableFiles(updatedAvailableFiles);
       setStoreAvailableFiles(updatedAvailableFiles);
-      
+
       setSelectedFiles((prev) => prev.filter((file) => file !== filename));
       setStoreSelectedFiles((prev) => prev.filter((file) => file !== filename));
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
@@ -431,7 +440,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       setToastId(id);
     } catch (error: any) {
       console.error("Delete error:", error);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
@@ -524,13 +533,13 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       );
       setPendingQuery(null);
       setIsLoading(false);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
       const id = toast.error("Failed to generate dashboard.");
       setToastId(id);
-      
+
       abortControllerRef.current = null;
       toastShownRef.current = null;
     }
@@ -583,13 +592,13 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       );
       setPendingQuery(null);
       setIsLoading(false);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
       const id = toast.error("Failed to generate dashboard.");
       setToastId(id);
-      
+
       abortControllerRef.current = null;
       toastShownRef.current = null;
     }
@@ -636,7 +645,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       addAssistantMessage("Retry failed. Please try again.", null);
       setPendingQuery(null);
       setIsLoading(false);
-      
+
       if (toastId) {
         toast.dismiss(toastId);
       }
@@ -649,7 +658,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     navigator.clipboard.writeText(text);
     setCopiedMessageId(messageId);
     setTimeout(() => setCopiedMessageId(null), 2000);
-    
+
     if (toastId) {
       toast.dismiss(toastId);
     }
@@ -662,10 +671,10 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       const newSelection = prev.includes(fileName)
         ? prev.filter((f) => f !== fileName)
         : [...prev, fileName];
-      
+
       // Update store
       setStoreSelectedFiles(newSelection);
-      
+
       return newSelection;
     });
   };
@@ -678,15 +687,21 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   // Process dashboard data to remove empty sections
   const hasValidData = (data: any) => {
     if (!data) return false;
-    const hasKPIs = data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0;
-    const hasCharts = data.charts && Array.isArray(data.charts) && data.charts.length > 0;
-    const hasContent = data.content && typeof data.content === 'string' && data.content.trim() !== '';
-    const hasTable = data.table && Array.isArray(data.table) && data.table.length > 0;
+    const hasKPIs =
+      data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0;
+    const hasCharts =
+      data.charts && Array.isArray(data.charts) && data.charts.length > 0;
+    const hasContent =
+      data.content &&
+      typeof data.content === "string" &&
+      data.content.trim() !== "";
+    const hasTable =
+      data.table && Array.isArray(data.table) && data.table.length > 0;
     return hasKPIs || hasCharts || hasContent || hasTable;
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col">
       <input
         ref={fileInputRef}
         type="file"
@@ -830,7 +845,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
               </motion.div>
             </div>
 
-            <div className="w-full backdrop-blur-xl bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
+            <div className="w-full bg-white border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
               <div className="p-4 pb-0 relative">
                 <Textarea
                   placeholder="Ask me anything..."
@@ -932,18 +947,18 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 flex flex-col min-h-0 ">
+          <div className="flex-1 overflow-y-auto px-6 py-4 ">
             <div className="max-w-full mx-auto space-y-6">
               {messages.map((message, index) => {
                 // Create a truly unique key
                 const uniqueKey = `${message.id}-${index}-${message.timestamp.getTime()}`;
 
                 return (
-                  <div key={uniqueKey} className="space-y-2">
+                  <div key={uniqueKey} className="space-y-2 ">
                     {message.type === "user" ? (
                       <>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end ">
                           <div className="inline-block max-w-[80%] rounded-2xl px-5 py-3 bg-gray-900 text-white shadow-sm">
                             <p className="text-md leading-relaxed whitespace-pre-wrap break-words">
                               {message.content}
@@ -952,10 +967,10 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                         </div>
                         <div className="flex items-center justify-end gap-3 px-2">
                           <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            {/* <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
                             <span className="text-xs text-slate-500">
                               {formatTimeString(message.timestamp)}
-                            </span>
+                            </span> */}
                           </div>
                           <Button
                             variant="ghost"
@@ -980,30 +995,40 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                           {/* Use ReactMarkdown for content with bold formatting - FIXED VERSION */}
                           <ReactMarkdown
                             components={{
-                              p: ({children}) => <p className="mb-2 last:mb-0 text-md">{children}</p>,
-                              strong: ({children}) => <strong className="font-bold text-gray-900">{children}</strong>,
+                              p: ({ children }) => (
+                                <p className="mb-2 last:mb-0 text-md">
+                                  {children}
+                                </p>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-bold text-gray-900">
+                                  {children}
+                                </strong>
+                              ),
                             }}
                           >
                             {message.content}
                           </ReactMarkdown>
 
-                          {message.visualRendered && message.dashboardData && hasValidData(message.dashboardData) && (
-                            <div className="mt-4 w-full">
-                              <DashboardCard
-                                dashboardData={message.dashboardData}
-                                timestamp={message.timestamp}
-                                showLoader={false}
-                              />
-                            </div>
-                          )}
+                          {message.visualRendered &&
+                            message.dashboardData &&
+                            hasValidData(message.dashboardData) && (
+                              <div className="mt-4 w-full">
+                                <DashboardCard
+                                  dashboardData={message.dashboardData}
+                                  timestamp={message.timestamp}
+                                  showLoader={false}
+                                />
+                              </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-3 px-2">
                           <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            {/* <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
                             <span className="text-xs text-slate-500">
                               {formatTimeString(message.timestamp)}
-                            </span>
+                            </span> */}
                           </div>
                           <Button
                             variant="ghost"
@@ -1032,8 +1057,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
             </div>
           </div>
 
-          <div className="bg-transparent sticky bottom-0 mt-auto">
-            <div className="w-full mx-auto px-6 py-3 backdrop-blur-sm bg-transparent">
+          <div className="bg-transparent backdrop-blur-sm fixed w-full  bottom-0 mr-20 mt-auto mx-auto">
+            <div className=" mx-auto backdrop-blur-2xl bg-transparent px-6 py-3 flex-items-center">
               <MessageInput
                 inputValue={inputValue}
                 setInputValue={setInputValue}

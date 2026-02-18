@@ -43,7 +43,7 @@ export function SalesDashboard() {
         handleSettings={handleSettings}
       />
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 ">
         <ChatSidebar />
         <div className="flex-1 overflow-y-auto">
           <DashboardContent userEmail={userEmail} />

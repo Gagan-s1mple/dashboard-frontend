@@ -521,3 +521,34 @@ nextjs-portal{
 textarea {
   resize: none;
 }
+
+/* Messages container scrollbar - remove blur effects */
+.messages-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db white !important;
+}
+
+.messages-scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-scroll-container::-webkit-scrollbar-track {
+  background: white !important;
+  border-radius: 4px;
+  margin-left: 8px;
+  margin-right: 8px;
+}
+
+.messages-scroll-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+  margin: 8px;
+}
+
+.messages-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.messages-scroll-container::-webkit-scrollbar-corner {
+  background: white;
+}

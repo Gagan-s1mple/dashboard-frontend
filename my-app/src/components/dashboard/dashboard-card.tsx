@@ -560,10 +560,10 @@ export const DashboardCard = ({
             {/* KPIs section - only show if has KPIs */}
             {hasKPIs && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-600" />
                   Key Performance Indicators
-                </h3>
+                </h3> */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {dashboardData.kpis.map((kpi: any, i: number) =>
                     renderKPICard(kpi, i),
@@ -575,10 +575,10 @@ export const DashboardCard = ({
             {/* Charts section - only show if has charts */}
             {hasCharts && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <BarChart className="w-5 h-5 text-indigo-600" />
                   Visualizations
-                </h3>
+                </h3> */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {dashboardData.charts.map((chart: any, i: number) =>
                     renderChart(chart, i),
@@ -590,10 +590,10 @@ export const DashboardCard = ({
             {/* Table section if available */}
             {dashboardData.table && Array.isArray(dashboardData.table) && dashboardData.table.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-orange-600" />
                   Data Table
-                </h3>
+                </h3> */}
                 <div className="overflow-x-auto border rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">

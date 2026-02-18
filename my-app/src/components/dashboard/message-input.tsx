@@ -46,7 +46,7 @@ export const MessageInput = ({
   };
 
   return (
-    <div className="backdrop-blur-xl bg-transparent border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-3xl flex flex-col flex-items-center mx-auto">
+    <div className="backdrop-blur-xl bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-2xl flex flex-col flex-items-center mx-auto">
       <div className="p-4 pb-0 relative">
         <Textarea
           ref={inputRef}
