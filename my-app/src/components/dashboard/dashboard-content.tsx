@@ -1066,7 +1066,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         uploadSuccess={uploadSuccess}
         recentlyUploadedFile={recentlyUploadedFile}
         uploading={uploading}
-        fileInputRef={fileInputRef}
+        fileInputRef={fileInputRef as React.RefObject<HTMLInputElement>}
         onFileUpload={handleFileUpload}
         onClearSelection={clearSelectedFiles}
         onClose={() => {

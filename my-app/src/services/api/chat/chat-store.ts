@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { url } from "../api-url";
-import { toast } from "sonner";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { updateTitleAPI } from "./update-title";
+import { useUpdateTitleStore } from "./update-title";
+import { useDeleteChatStore } from "./delete-chat";
 
 // ============ TYPES ============
 
@@ -56,9 +56,9 @@ class ChatHistoryAPI {
       });
 
       if (!response.ok) return [];
-      
+
       const data = await response.json();
-      
+
       // Handle different response formats
       if (Array.isArray(data)) {
         return data;
@@ -67,7 +67,7 @@ class ChatHistoryAPI {
       } else if (data && data.chats && Array.isArray(data.chats)) {
         return data.chats;
       }
-      
+
       return [];
     } catch (error) {
       console.error("Failed to fetch chat titles:", error);
@@ -171,7 +171,7 @@ interface ChatStoreState {
   selectedFiles: string[];
   uploadedFiles: UploadedFile[];
   availableFiles: DatabaseFile[];
-  
+
   // Input state
   inputValue: string;
   lastQuery: string;
@@ -187,7 +187,10 @@ interface ChatStoreActions {
   fetchChatHistory: (chatId: string) => Promise<void>;
   createNewChat: () => string; // Returns new chat_id
   deleteChat: (chatId: string) => Promise<void>;
-  updateChatTitle: (chatId: string, newTitle: string) => Promise<{ success: boolean; message: string }>;
+  updateChatTitle: (
+    chatId: string,
+    newTitle: string,
+  ) => Promise<{ success: boolean; message: string }>;
 
   // Message operations
   addUserMessage: (query: string, files: string[]) => void;
@@ -198,11 +201,15 @@ interface ChatStoreActions {
 
   // ===== NEW: UI State Actions =====
   setSelectedFiles: (files: string[] | ((prev: string[]) => string[])) => void;
-  setUploadedFiles: (files: UploadedFile[] | ((prev: UploadedFile[]) => UploadedFile[])) => void;
-  setAvailableFiles: (files: DatabaseFile[] | ((prev: DatabaseFile[]) => DatabaseFile[])) => void;
+  setUploadedFiles: (
+    files: UploadedFile[] | ((prev: UploadedFile[]) => UploadedFile[]),
+  ) => void;
+  setAvailableFiles: (
+    files: DatabaseFile[] | ((prev: DatabaseFile[]) => DatabaseFile[]),
+  ) => void;
   setInputValue: (value: string) => void;
   setLastQuery: (query: string) => void;
-  
+
   // Utility
   clearAllState: () => void;
 
@@ -265,7 +272,7 @@ export const useChatStore = create<ChatStore>()(
         });
 
         await get().fetchChatTitles();
-        
+
         // Only create new chat if there are no existing chats
         const { chatTitles } = get();
         if (!chatTitles || chatTitles.length === 0) {
@@ -277,7 +284,7 @@ export const useChatStore = create<ChatStore>()(
             const numB = parseInt(b?.chat_id || "0", 10);
             return numB - numA;
           });
-          
+
           if (sortedTitles[0]?.chat_id) {
             await get().fetchChatHistory(sortedTitles[0].chat_id);
           }
@@ -420,7 +427,8 @@ export const useChatStore = create<ChatStore>()(
                 const task_id = item.content?.task_id || item.task_id;
 
                 // Use content from result if available
-                const assistantContent = result.content || "Dashboard generated successfully! ✨";
+                const assistantContent =
+                  result.content || "Dashboard generated successfully! ✨";
 
                 messages.push({
                   id: item.message_id || `msg-${chatId}-${index}-assistant`,
@@ -470,7 +478,6 @@ export const useChatStore = create<ChatStore>()(
         } catch (error) {
           console.error(`Failed to fetch history for chat ${chatId}:`, error);
           set({ isLoadingHistory: false });
-          // REMOVED: toast.error - Let main component handle toasts
         }
       },
 
@@ -489,53 +496,71 @@ export const useChatStore = create<ChatStore>()(
           isNewUnsavedChat: true,
         });
 
-        // REMOVED: toast.success - Let main component handle toasts
         return newChatId;
       },
 
       /**
        * Delete a chat
+       * ✅ FIX: API is called FIRST. UI only updates AFTER confirmed success.
+       * Old code did optimistic update first then rollback on failure — caused UI flash.
        */
       deleteChat: async (chatId: string) => {
         if (!chatId) return;
 
-        set((state) => {
-          const safeChatTitles = Array.isArray(state.chatTitles)
-            ? state.chatTitles
-            : [];
-          const updatedTitles = safeChatTitles.filter(
-            (t) => t?.chat_id !== chatId,
-          );
-          const updatedChats = { ...state.chats };
-          delete updatedChats[chatId];
+        console.log(`🗑️ Deleting chat ${chatId}`);
 
-          if (state.currentChatId === chatId) {
-            setTimeout(() => get().createNewChat(), 0);
-          }
+        const { currentChatId } = get();
+        const wasCurrentChat = currentChatId === chatId;
 
-          return {
-            chatTitles: updatedTitles,
-            chats: updatedChats,
-            currentChatId:
-              state.currentChatId === chatId ? null : state.currentChatId,
-            currentChatMessages:
-              state.currentChatId === chatId ? [] : state.currentChatMessages,
-            currentDashboardData:
-              state.currentChatId === chatId
-                ? null
-                : state.currentDashboardData,
-            currentMessageId:
-              state.currentChatId === chatId ? "0" : state.currentMessageId,
-            isNewUnsavedChat:
-              state.currentChatId === chatId ? true : state.isNewUnsavedChat,
-          };
+        // ✅ Call API FIRST — no optimistic update
+        const response = await useDeleteChatStore.getState().deleteChat({
+          chat_id: chatId,
         });
 
-        // REMOVED: toast.success - Let main component handle toasts
+        if (response.success) {
+          console.log("✅ Chat deleted in backend:", response);
+
+          // ✅ Only update UI AFTER API confirms success
+          set((state) => {
+            const safeChatTitles = Array.isArray(state.chatTitles)
+              ? state.chatTitles
+              : [];
+            const updatedTitles = safeChatTitles.filter(
+              (t) => t?.chat_id !== chatId,
+            );
+            const updatedChats = { ...state.chats };
+            delete updatedChats[chatId];
+
+            const newState: Partial<ChatStoreState> = {
+              chatTitles: updatedTitles,
+              chats: updatedChats,
+            };
+
+            // If we deleted the currently open chat, clear it
+            if (wasCurrentChat) {
+              newState.currentChatId = null;
+              newState.currentChatMessages = [];
+              newState.currentDashboardData = null;
+              newState.currentMessageId = "0";
+            }
+
+            return newState;
+          });
+
+          // If the deleted chat was active, open a fresh new chat
+          if (wasCurrentChat) {
+            setTimeout(() => get().createNewChat(), 0);
+          }
+        } else {
+          // ✅ API returned success: false — throw so ChatSidebar can show error toast
+          throw new Error(response.message || "Failed to delete chat");
+        }
       },
 
       /**
-       * Update chat title - simplified version
+       * Update chat title
+       * ✅ FIX: API is called FIRST. UI only updates AFTER confirmed success.
+       * Old code did optimistic update first then rollback on failure — caused UI flash.
        */
       updateChatTitle: async (chatId: string, newTitle: string) => {
         if (!chatId || !newTitle.trim()) {
@@ -544,61 +569,54 @@ export const useChatStore = create<ChatStore>()(
 
         console.log(`✏️ Renaming chat ${chatId} to: ${newTitle}`);
 
-        // Store previous title for rollback
-        const previousTitles = [...get().chatTitles];
-        const previousChats = { ...get().chats };
-
-        // Optimistically update UI first
-        set((state) => {
-          const safeChatTitles = Array.isArray(state.chatTitles) ? state.chatTitles : [];
-          const updatedTitles = safeChatTitles.map((chat) =>
-            chat?.chat_id === chatId ? { ...chat, title: newTitle } : chat
-          );
-
-          const updatedChats = { ...state.chats };
-          if (updatedChats[chatId]) {
-            updatedChats[chatId] = {
-              ...updatedChats[chatId],
-              title: newTitle,
-            };
-          }
-
-          return {
-            chatTitles: updatedTitles,
-            chats: updatedChats,
-          };
-        });
-
         try {
-          // Call backend API
-          const response = await updateTitleAPI.updateTitle({
+          // ✅ Call API FIRST — no optimistic update
+          const response = await useUpdateTitleStore.getState().updateTitle({
             chat_id: chatId,
             title: newTitle,
           });
 
           if (response.success) {
             console.log("✅ Title updated in backend:", response);
+
+            // ✅ Only update UI AFTER API confirms success
+            set((state) => {
+              const safeChatTitles = Array.isArray(state.chatTitles)
+                ? state.chatTitles
+                : [];
+              const updatedTitles = safeChatTitles.map((chat) =>
+                chat?.chat_id === chatId ? { ...chat, title: newTitle } : chat,
+              );
+
+              const updatedChats = { ...state.chats };
+              if (updatedChats[chatId]) {
+                updatedChats[chatId] = {
+                  ...updatedChats[chatId],
+                  title: newTitle,
+                };
+              }
+
+              return {
+                chatTitles: updatedTitles,
+                chats: updatedChats,
+              };
+            });
+
             return { success: true, message: "Chat renamed successfully" };
           } else {
-            // If backend says success: false, rollback and return error
-            set({
-              chatTitles: previousTitles,
-              chats: previousChats,
-            });
-            return { success: false, message: response.message || "Failed to update title" };
+            // ✅ API returned success: false — no UI change, return error for toast
+            return {
+              success: false,
+              message: response.message || "Failed to update title",
+            };
           }
         } catch (error) {
           console.error("❌ Failed to update chat title:", error);
-          
-          // Rollback optimistic update
-          set({
-            chatTitles: previousTitles,
-            chats: previousChats,
-          });
-          
-          return { 
-            success: false, 
-            message: error instanceof Error ? error.message : "Failed to rename chat" 
+          // No UI change — return error for toast
+          return {
+            success: false,
+            message:
+              error instanceof Error ? error.message : "Failed to rename chat",
           };
         }
       },
@@ -761,36 +779,40 @@ export const useChatStore = create<ChatStore>()(
       },
 
       // ===== NEW: UI State Actions =====
-      setSelectedFiles: (files) => 
+      setSelectedFiles: (files) =>
         set((state) => ({
-          selectedFiles: typeof files === 'function' ? files(state.selectedFiles) : files
+          selectedFiles:
+            typeof files === "function" ? files(state.selectedFiles) : files,
         })),
-      
+
       setUploadedFiles: (files) =>
         set((state) => ({
-          uploadedFiles: typeof files === 'function' ? files(state.uploadedFiles) : files
+          uploadedFiles:
+            typeof files === "function" ? files(state.uploadedFiles) : files,
         })),
-      
+
       setAvailableFiles: (files) =>
         set((state) => ({
-          availableFiles: typeof files === 'function' ? files(state.availableFiles) : files
+          availableFiles:
+            typeof files === "function" ? files(state.availableFiles) : files,
         })),
-      
+
       setInputValue: (value) => set({ inputValue: value }),
       setLastQuery: (query) => set({ lastQuery: query }),
-      
-      clearAllState: () => set({
-        selectedFiles: [],
-        uploadedFiles: [],
-        availableFiles: [],
-        inputValue: "",
-        lastQuery: "",
-        currentChatId: null,
-        currentChatMessages: [],
-        currentDashboardData: null,
-        currentMessageId: "0",
-        isNewUnsavedChat: false,
-      }),
+
+      clearAllState: () =>
+        set({
+          selectedFiles: [],
+          uploadedFiles: [],
+          availableFiles: [],
+          inputValue: "",
+          lastQuery: "",
+          currentChatId: null,
+          currentChatMessages: [],
+          currentDashboardData: null,
+          currentMessageId: "0",
+          isNewUnsavedChat: false,
+        }),
 
       // ========== GETTERS ==========
 
@@ -816,7 +838,7 @@ export const useChatStore = create<ChatStore>()(
         currentChatMessages: state.currentChatMessages,
         currentDashboardData: state.currentDashboardData,
         currentMessageId: state.currentMessageId,
-        
+
         // UI State
         selectedFiles: state.selectedFiles,
         uploadedFiles: state.uploadedFiles,

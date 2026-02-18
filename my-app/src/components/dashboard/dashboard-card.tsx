@@ -50,8 +50,10 @@ export const DashboardCard = ({
   const renderChart = (chartOption: any, index: number) => {
     const fixedChartOption = { ...chartOption };
     
-    // Keep chart title visible (removed the show: false)
-    // No modification to title
+    // Remove the title from inside the chart - only show in header
+    if (fixedChartOption.title) {
+      fixedChartOption.title = { ...fixedChartOption.title, show: false };
+    }
 
     if (fixedChartOption.series) {
       fixedChartOption.series = fixedChartOption.series.map((series: any) => {

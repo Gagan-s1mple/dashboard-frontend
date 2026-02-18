@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Toaster } from "../ui/sonner";
 import { useRouter } from "next/navigation";
 
 // Import components
@@ -35,7 +34,6 @@ export function SalesDashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-white">
-      <Toaster />
 
       <NavigationBar
         userEmail={userEmail}

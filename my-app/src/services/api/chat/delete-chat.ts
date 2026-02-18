@@ -2,25 +2,20 @@
 import { create } from "zustand";
 import { url } from "../api-url";
 
-export interface updateTitleAPI {
+export interface deleteChatAPI {
   chat_id: string;
-  title: string;
 }
 
-export interface UpdateTitleResponse {
+export interface DeleteChatResponse {
   success: boolean;
   message: string;
-  chat?: {
-    chat_id: string;
-    title: string;
-    updated_at: string;
-  };
+  chat_id?: string;
 }
 
-interface UpdateTitleState {
+interface DeleteChatState {
   loading: boolean;
   error: string | null;
-  updateTitle: (payload: updateTitleAPI) => Promise<UpdateTitleResponse>;
+  deleteChat: (payload: deleteChatAPI) => Promise<DeleteChatResponse>;
 }
 
 const getAuthToken = (): string | null => localStorage.getItem("auth_token");
@@ -38,19 +33,19 @@ const parseErrorMessage = async (response: Response): Promise<string> => {
   }
 };
 
-export const useUpdateTitleStore = create<UpdateTitleState>((set) => ({
+export const useDeleteChatStore = create<DeleteChatState>((set) => ({
   loading: false,
   error: null,
 
-  updateTitle: async (payload: updateTitleAPI): Promise<UpdateTitleResponse> => {
+  deleteChat: async (payload: deleteChatAPI): Promise<DeleteChatResponse> => {
     set({ loading: true, error: null });
 
     try {
       const token = getAuthToken();
       if (!token) throw new Error("Authentication required. Please login first.");
 
-      const response = await fetch(`${url.backendUrl}/api/update-title`, {
-        method: "PUT",
+      const response = await fetch(`${url.backendUrl}/api/delete-chat`, {
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -72,10 +67,10 @@ export const useUpdateTitleStore = create<UpdateTitleState>((set) => ({
 
       const data = await response.json();
 
-      const normalized: UpdateTitleResponse = {
-        success: data.success !== false, 
-        message: data.message || "Chat title updated successfully",
-        chat: data.chat ?? { chat_id: payload.chat_id, title: payload.title, updated_at: new Date().toISOString() },
+      const normalized: DeleteChatResponse = {
+        success: data.success !== false,
+        message: data.message || "Chat deleted successfully",
+        chat_id: data.chat_id ?? payload.chat_id,
       };
 
       set({ loading: false });

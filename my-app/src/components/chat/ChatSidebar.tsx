@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/purity */
 
 "use client";
 
@@ -13,8 +12,8 @@ export const ChatSidebar = () => {
   const [chatToDelete, setChatToDelete] = useState<{ id: string; title: string } | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
-  const [toastId, setToastId] = useState<string | number | null>(null);
-  
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const {
     chatTitles,
     currentChatId,
@@ -26,7 +25,6 @@ export const ChatSidebar = () => {
     updateChatTitle,
   } = useChatStore();
 
-  // Load chat titles when component mounts
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
     if (token) {
@@ -34,7 +32,6 @@ export const ChatSidebar = () => {
     }
   }, [fetchChatTitles]);
 
-  // Always ensure chatTitles is an array
   const safeChatTitles = Array.isArray(chatTitles) ? chatTitles : [];
 
   const handleSelectChat = (chatId: string) => {
@@ -45,12 +42,7 @@ export const ChatSidebar = () => {
 
   const handleNewChat = () => {
     createNewChat();
-    
-    if (toastId) {
-      toast.dismiss(toastId);
-    }
-    const id = toast.success("New chat started");
-    setToastId(id);
+    toast.success("New chat started", { duration: 2000 });
   };
 
   const handleDeleteClick = (e: React.MouseEvent, chatId: string, chatTitle: string) => {
@@ -60,20 +52,31 @@ export const ChatSidebar = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (chatToDelete) {
+    if (!chatToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // ✅ deleteChat now calls API first, updates UI only on success
       await deleteChat(chatToDelete.id);
       setShowDeleteModal(false);
       setChatToDelete(null);
-      
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.success("Chat deleted successfully");
-      setToastId(id);
+      // ✅ Green toast on success
+      toast.success("Chat deleted successfully", { duration: 2000 });
+    } catch (error) {
+      setShowDeleteModal(false);
+      setChatToDelete(null);
+      // ✅ Red toast on failure
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete chat",
+        { duration: 3000 }
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleCancelDelete = () => {
+    if (isDeleting) return; // prevent closing while deleting
     setShowDeleteModal(false);
     setChatToDelete(null);
   };
@@ -86,11 +89,7 @@ export const ChatSidebar = () => {
 
   const handleRenameSave = async (chatId: string) => {
     if (!editingTitle.trim()) {
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Title cannot be empty");
-      setToastId(id);
+      toast.error("Title cannot be empty");
       return;
     }
 
@@ -100,25 +99,28 @@ export const ChatSidebar = () => {
       return;
     }
 
-    // Show loading toast
-    const loadingId = toast.loading("Updating title...");
-    setToastId(loadingId);
-
-    const result = await updateChatTitle(chatId, editingTitle.trim());
-
-    // Dismiss loading toast
-    toast.dismiss(loadingId);
-
-    if (result.success) {
-      const id = toast.success(result.message);
-      setToastId(id);
-    } else {
-      const id = toast.error(result.message);
-      setToastId(id);
-    }
-
+    // Clear editing state immediately for UX
+    const titleToSave = editingTitle.trim();
     setEditingChatId(null);
     setEditingTitle("");
+
+    try {
+      // ✅ updateChatTitle calls API first, updates UI only on success
+      const result = await updateChatTitle(chatId, titleToSave);
+
+      if (result.success) {
+        // ✅ Green toast on success
+        toast.success(result.message || "Chat renamed successfully", { duration: 2000 });
+      } else {
+        // ✅ Red toast on failure
+        toast.error(result.message || "Failed to update title", { duration: 3000 });
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update title",
+        { duration: 3000 }
+      );
+    }
   };
 
   const handleRenameCancel = () => {
@@ -135,7 +137,7 @@ export const ChatSidebar = () => {
   };
 
   const getChatTitle = (chatId: string) => {
-    const chat = safeChatTitles.find(c => c?.chat_id === chatId);
+    const chat = safeChatTitles.find((c) => c?.chat_id === chatId);
     return chat?.title || "Untitled Chat";
   };
 
@@ -146,7 +148,7 @@ export const ChatSidebar = () => {
           collapsed ? "w-16" : "w-72"
         }`}
       >
-        {/* HEADER */}
+        {/* ===== HEADER ===== */}
         <div className="p-4 flex items-center justify-between border-b">
           {!collapsed && (
             <span className="font-semibold text-lg text-slate-800">
@@ -162,154 +164,163 @@ export const ChatSidebar = () => {
           </button>
         </div>
 
-        {/* NEW CHAT BUTTON - No icon when collapsed */}
+        {/* ===== NEW CHAT BUTTON ===== */}
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm ${
-              collapsed ? "justify-center" : ""
-            }`}
-            title={collapsed ? "New Chat" : ""}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm justify-center`}
+            title="New Chat"
           >
-            {!collapsed && <Plus className="w-5 h-5" />}
-            {!collapsed ? (
+            <Plus className="w-5 h-5 flex-shrink-0" />
+            {/* ✅ Hide label text when collapsed */}
+            {!collapsed && (
               <span className="text-sm font-medium">New Chat</span>
-            ) : (
-              <Plus className="w-5 h-5" />
             )}
           </button>
         </div>
 
-        <div className="border-t" />
+        {/* ✅ Everything below is hidden when collapsed */}
+        {!collapsed && (
+          <>
+            <div className="border-t" />
 
-        {/* CHAT LIST */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {isLoadingTitles ? (
-            <div className="flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-            </div>
-          ) : safeChatTitles.length === 0 ? (
-            !collapsed && (
-              <div className="text-center py-8 px-4">
-                <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">No chats yet</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Start a new conversation
-                </p>
-              </div>
-            )
-          ) : (
-            safeChatTitles
-              .sort((a, b) => {
-                const numA = parseInt(a?.chat_id || "0", 10);
-                const numB = parseInt(b?.chat_id || "0", 10);
-                return numB - numA;
-              })
-              .map((chat) => (
-                <div
-                  key={chat?.chat_id || Math.random()}
-                  className={`group relative rounded-lg transition-all ${
-                    chat?.chat_id === currentChatId
-                      ? "bg-indigo-50 border border-indigo-200"
-                      : "hover:bg-slate-50 border border-transparent"
-                  }`}
-                >
-                  {editingChatId === chat?.chat_id ? (
-                    // RENAME MODE
-                    <div className="flex items-center gap-1 px-2 py-1.5">
-                      <input
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, chat?.chat_id)}
-                        className="flex-1 text-sm px-2 py-1 border border-indigo-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRenameSave(chat?.chat_id);
-                        }}
-                        className="p-1 text-green-600 hover:bg-green-50 rounded"
-                        title="Save"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRenameCancel();
-                        }}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                        title="Cancel"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    // NORMAL MODE
-                    <>
-                      <button
-                        onClick={() => handleSelectChat(chat?.chat_id)}
-                        className={`w-full text-left px-3 py-2.5 text-sm truncate ${
-                          collapsed ? "text-center" : ""
-                        }`}
-                        title={!collapsed ? chat?.title : chat?.title}
-                      >
-                        {collapsed ? (
-                          // No icon when collapsed
-                          <span className="text-xs font-medium text-slate-700">
-                            {chat?.title?.charAt(0) || "C"}
-                          </span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <MessageSquare className={`w-4 h-4 flex-shrink-0 ${
-                              chat?.chat_id === currentChatId ? "text-indigo-600" : "text-slate-500"
-                            }`} />
-                            <span className={`truncate ${
-                              chat?.chat_id === currentChatId ? "font-medium text-indigo-700" : "text-slate-700"
-                            }`}>
-                              {chat?.title || "Untitled Chat"}
-                            </span>
-                          </div>
-                        )}
-                      </button>
-                      
-                      {!collapsed && (
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+            {/* CHAT LIST */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {isLoadingTitles ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                </div>
+              ) : safeChatTitles.length === 0 ? (
+                <div className="text-center py-8 px-4">
+                  <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-500">No chats yet</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Start a new conversation
+                  </p>
+                </div>
+              ) : (
+                safeChatTitles
+                  .slice()
+                  .sort((a, b) => {
+                    const numA = parseInt(a?.chat_id || "0", 10);
+                    const numB = parseInt(b?.chat_id || "0", 10);
+                    return numB - numA;
+                  })
+                  .map((chat) => (
+                    <div
+                      key={chat?.chat_id || Math.random()}
+                      className={`group relative rounded-lg transition-all ${
+                        chat?.chat_id === currentChatId
+                          ? "bg-indigo-50 border border-indigo-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                    >
+                      {editingChatId === chat?.chat_id ? (
+                        // RENAME MODE
+                        <div className="flex items-center gap-1 px-2 py-1.5">
+                          <input
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, chat?.chat_id)}
+                            className="flex-1 text-sm px-2 py-1 border border-indigo-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
                           <button
-                            onClick={(e) => handleRenameClick(e, chat?.chat_id, chat?.title || "Untitled Chat")}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
-                            title="Rename chat"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRenameSave(chat?.chat_id);
+                            }}
+                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                            title="Save"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Check className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={(e) => handleDeleteClick(e, chat?.chat_id, chat?.title || "Untitled Chat")}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            title="Delete chat"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRenameCancel();
+                            }}
+                            className="p-1 text-red-600 hover:bg-red-50 rounded"
+                            title="Cancel"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))
-          )}
-        </div>
+                      ) : (
+                        // NORMAL MODE
+                        <>
+                          <button
+                            onClick={() => handleSelectChat(chat?.chat_id)}
+                            className="w-full text-left px-3 py-2.5 text-sm"
+                            title={chat?.title}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MessageSquare
+                                className={`w-4 h-4 flex-shrink-0 ${
+                                  chat?.chat_id === currentChatId
+                                    ? "text-indigo-600"
+                                    : "text-slate-500"
+                                }`}
+                              />
+                              <span
+                                className={`truncate ${
+                                  chat?.chat_id === currentChatId
+                                    ? "font-medium text-indigo-700"
+                                    : "text-slate-700"
+                                }`}
+                              >
+                                {chat?.title || "Untitled Chat"}
+                              </span>
+                            </div>
+                          </button>
 
-        {/* FOOTER */}
-        {!collapsed && (
-          <div className="p-4 border-t text-xs text-slate-400">
-            {safeChatTitles.length} {safeChatTitles.length === 1 ? "chat" : "chats"}
-          </div>
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button
+                              onClick={(e) =>
+                                handleRenameClick(
+                                  e,
+                                  chat?.chat_id,
+                                  chat?.title || "Untitled Chat",
+                                )
+                              }
+                              className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                              title="Rename chat"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) =>
+                                handleDeleteClick(
+                                  e,
+                                  chat?.chat_id,
+                                  chat?.title || "Untitled Chat",
+                                )
+                              }
+                              className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              title="Delete chat"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+
+            {/* FOOTER */}
+            <div className="p-4 border-t text-xs text-slate-400">
+              {safeChatTitles.length}{" "}
+              {safeChatTitles.length === 1 ? "chat" : "chats"}
+            </div>
+          </>
         )}
       </div>
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* ===== DELETE CONFIRMATION MODAL ===== */}
       {showDeleteModal && chatToDelete && (
         <>
           <div
@@ -321,28 +332,39 @@ export const ChatSidebar = () => {
               <div className="p-2 bg-red-100 rounded-full">
                 <Trash2 className="w-5 h-5 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800">Delete Chat</h3>
+              <h3 className="text-lg font-semibold text-slate-800">
+                Delete Chat
+              </h3>
             </div>
-            
+
             <p className="text-slate-600 mb-2">
               Are you sure you want to delete this chat?
             </p>
             <p className="text-sm text-slate-500 mb-6 p-3 bg-slate-50 rounded-lg">
-              &#34;{chatToDelete.title}&quot;
+              &ldquo;{chatToDelete.title}&rdquo;
             </p>
-            
+
             <div className="flex justify-end gap-3">
               <button
                 onClick={handleCancelDelete}
-                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition"
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition"
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition disabled:opacity-70 flex items-center gap-2"
               >
-                Delete
+                {isDeleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>

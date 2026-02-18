@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -38,25 +38,40 @@ export const FileDialogs = ({
   uploading,
   fileInputRef,
   onClearSelection,
-  
 }: FileDialogsProps) => {
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (uploadSuccess && countdown === null && !countdownStartedRef.current) {
+      countdownStartedRef.current = true;
+      setCountdown(3);
+    }
+  }, [uploadSuccess]);
+
+  useEffect(() => {
+    if (countdown === null || countdown < 0) return;
+
+    if (countdown === 0) {
+      countdownStartedRef.current = false;
+      setShowFileUploadModal(false);
+      setShowFileDialog(true); // ✅ Reopen file selection dialog after countdown
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown(countdown - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [countdown, setShowFileUploadModal, setShowFileDialog]);
+
   // Handle cancel in upload modal - go back to file selection
   const handleUploadCancel = () => {
     setShowFileUploadModal(false);
-    // Don't close file dialog, just go back to selection
-    // The file dialog should still be open
-  };
-
-  // Handle close/back from upload modal
-//   const handleUploadBack = () => {
-//     setShowFileUploadModal(false);
-//     // File dialog remains open
-//   };
-
-  // Handle success state - close upload modal and return to selection
-  const handleUploadSuccessClose = () => {
-    setShowFileUploadModal(false);
-    // File dialog remains open
+    setCountdown(null);
+    countdownStartedRef.current = false;
+    setShowFileDialog(true); // ✅ Reopen file selection dialog on cancel
   };
 
   return (
@@ -243,17 +258,39 @@ export const FileDialogs = ({
 
           {uploadSuccess && recentlyUploadedFile ? (
             <div className="border-2 border-green-500 rounded-lg p-8 text-center bg-green-50">
-              <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
-              <h4 className="text-lg font-semibold text-green-700 mb-2">
-                Upload Successful!
-              </h4>
-              <p className="text-green-600">{recentlyUploadedFile}</p>
-              <Button
-                onClick={handleUploadSuccessClose}
-                className="mt-4 bg-green-600 hover:bg-green-700 text-white"
-              >
-                Back to File Selection
-              </Button>
+              <div className="mb-4">
+                {countdown === null ? (
+                  <>
+                    <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                    <h4 className="text-lg font-semibold text-green-700 mb-2">
+                      Upload Successful!
+                    </h4>
+                    <p className="text-green-600">{recentlyUploadedFile}</p>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-16 h-16 text-green-600 mx-auto mb-4" />
+                    <h4 className="text-lg font-semibold text-green-700 mb-2">
+                      Upload Successful!
+                    </h4>
+                    <p className="text-green-600 mb-4">{recentlyUploadedFile}</p>
+                    <div className="text-4xl font-bold text-green-600 animate-pulse">
+                      {countdown}
+                    </div>
+                    <p className="text-sm text-green-600 mt-2">
+                      Returning to file selection...
+                    </p>
+                  </>
+                )}
+              </div>
+              {countdown === null && (
+                <Button
+                  onClick={handleUploadCancel}
+                  className="mt-4 bg-green-600 hover:bg-green-700 text-white"
+                >
+                  Back to File Selection
+                </Button>
+              )}
             </div>
           ) : (
             <>
@@ -280,10 +317,7 @@ export const FileDialogs = ({
           )}
 
           <div className="flex justify-end gap-2 mt-6">
-            <Button
-              variant="outline"
-              onClick={handleUploadCancel}
-            >
+            <Button variant="outline" onClick={handleUploadCancel}>
               Cancel
             </Button>
           </div>

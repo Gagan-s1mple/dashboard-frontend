@@ -265,14 +265,14 @@ export class DashboardAPI {
   /**
    * Get task status (for polling)
    */
-  async getTaskStatus(taskId: string): Promise<TaskStatus> {
+  async getTaskStatus(taskId: string, messageId?: string): Promise<TaskStatus> {
     console.group("📡 API Call: getTaskStatus");
     console.log("📤 Request Details:");
     console.log("  - URL:", `${this.baseUrl}/llm/dashboard/${taskId}`);
     console.log("  - Method:", "GET");
     console.log("  - Task ID:", taskId);
     console.log("  - Chat ID:", this.chatId);
-    console.log("  - Formatted Message ID:", this.getFormattedMessageId());
+    console.log("  - Formatted Message ID:", messageId || this.getFormattedMessageId());
     console.log("  - Timestamp:", new Date().toISOString());
 
     try {
@@ -287,8 +287,11 @@ export class DashboardAPI {
         throw new Error("Authentication required. Please login first.");
       }
 
+      // Use provided messageId or fall back to current one
+      const messageIdToUse = messageId || this.getFormattedMessageId();
+      
       // Add chat_id and formatted message_id as query parameters
-      const urlWithParams = `${this.baseUrl}/llm/dashboard/${taskId}?chat_id=${this.chatId}&message_id=${this.getFormattedMessageId()}`;
+      const urlWithParams = `${this.baseUrl}/llm/dashboard/${taskId}?chat_id=${this.chatId}&message_id=${messageIdToUse}`;
       
       const response = await fetch(urlWithParams, {
         method: "GET",
@@ -400,7 +403,7 @@ export class DashboardAPI {
     console.log("  - Timestamp:", new Date().toISOString());
 
     try {
-      // ❌ REMOVED: this.incrementMessageId(); - message_id already incremented in fetchDashboardData
+      // ❌ REMOVED: this.incrementMessageId(); - message_id now incremented in store after success
       
       const requestBody: any = { 
         message, 
@@ -564,6 +567,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       set({ currentChatId });
     }
     
+    // Get the CURRENT message ID before incrementing
+    const currentMessageId = get().currentMessageId;
+    console.log("📊 Current messageId before increment:", currentMessageId);
     console.log("📊 Current formatted message ID:", dashboardAPI.getFormattedMessageId());
     console.log("📝 Chat title being sent:", chatTitle || "No title");
     
@@ -573,13 +579,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     
     // Update the API instance with current chat_id and message_id
     dashboardAPI.setChatId(get().currentChatId);
-    dashboardAPI.setMessageId(get().currentMessageId);
+    dashboardAPI.setMessageId(currentMessageId); // Use current message ID, not incremented yet
     
     set({ loading: true, hasData: false });
 
     try {
       // Step 1: Create task and get task ID
-      console.log("📞 Creating dashboard task...");
+      console.log("📞 Creating dashboard task with message_id:", dashboardAPI.getFormattedMessageId());
       const { task_id } = await dashboardAPI.createDashboardTask(
         query,
         file_name,
@@ -587,6 +593,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       );
 
       console.log("✅ Task created with ID:", task_id);
+
+      // AFTER successful task creation, increment the message ID for NEXT query
+      const nextMessageId = (parseInt(currentMessageId, 10) + 1).toString();
+      console.log(`📈 Incrementing messageId for NEXT query: ${currentMessageId} -> ${nextMessageId}`);
+      set({ currentMessageId: nextMessageId });
+      dashboardAPI.setMessageId(nextMessageId);
 
       // Step 2: Store task ID and start polling
       set({
@@ -615,6 +627,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   pollTaskStatus: async (taskId: string) => {
+    // STORE THE ORIGINAL MESSAGE-ID WHEN POLLING STARTS
+    const originalFormattedMessageId = dashboardAPI.getFormattedMessageId();
+    
+    console.log(`🔍 Starting poll for task ${taskId} with original message-id: ${originalFormattedMessageId}`);
+
     const poll = async () => {
       const { polling } = get();
       if (!polling) {
@@ -624,8 +641,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       try {
         console.log("🔍 Polling task status for:", taskId);
-        console.log("📊 Current formatted message ID:", dashboardAPI.getFormattedMessageId());
-        const taskStatus = await dashboardAPI.getTaskStatus(taskId);
+        
+        // PASS THE ORIGINAL MESSAGE-ID TO getTaskStatus
+        const taskStatus = await dashboardAPI.getTaskStatus(taskId, originalFormattedMessageId);
 
         console.log("📊 Task Status Update:", {
           taskId: taskId,
