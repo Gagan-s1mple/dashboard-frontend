@@ -17,6 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dashboard-Builder",
   description: "Build Ur dashboards with a single Prompt",
+  
 };
 
 export default function RootLayout({

@@ -11,7 +11,7 @@ import { Label } from "../ui/label";
 import Image from "next/image";
 import { useLoginStore } from "@/src/services/api/login/login-store";
 import { toast } from "sonner";
-import { ArrowRight, AlertCircle,Eye,EyeOff } from "lucide-react"; // Add icons for better UI
+import { ArrowRight, AlertCircle,Eye,EyeOff,Sparkles } from "lucide-react"; // Add icons for better UI
 
 export function LoginForm({
   className,
@@ -65,136 +65,153 @@ export function LoginForm({
     router.push("/signup");
   };
 
-  return (
-    <div
-      className={cn(
-        "bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex items-center justify-center p-6",
-        className,
-      )}
-      {...props}
-    >
-      <Card className="overflow-hidden p-0 w-full max-w-5xl shadow-xl rounded-3xl">
-        <CardContent className="grid p-0 md:grid-cols-2">
+return (
+  <div
+    className={cn(
+     "min-h-screen flex items-center justify-center  p-4"
 
-          {/* LEFT */}
-          <form
-            className="p-8 md:p-12 flex flex-col justify-center"
-            onSubmit={handleSubmit}
-          >
-            <div className="flex flex-col gap-6 max-w-sm mx-auto w-full">
+,
+      className,
+    )}
+    {...props}
+  >
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(59,130,246,0.15),transparent_60%)]" />
 
-              <div className="text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  Welcome back
-                </h1>
-                <p className="text-gray-500 text-sm mt-1">
-                  Login to your account
-                </p>
-              </div>
+    <Card
+  className="relative w-full max-w-md
+  bg-white/20 backdrop-blur-xl
+  border border-white/40
+  shadow-[0_20px_60px_rgba(0,0,0,0.2)]
+  rounded-2xl overflow-hidden"
+>
 
-              {error && isSignupError && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-amber-600" />
-                    <div className="flex-1">
-                      <p className="font-medium">Account not found</p>
-                      <p className="text-sm mt-1">It looks like you don&lsquo;t have an account yet. Would you like to create one?</p>
-                      <Button
-                        type="button"
-                        onClick={handleSignupRedirect}
-                        className="mt-3 h-9 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-2"
-                      >
-                        Sign up now
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
+     
+      <div className="absolute top-0 left-0 right-0 h-40 
+      bg-gradient-to-b from-blue-100 via-blue-50 to-transparent 
+      opacity-40 blur-3xl -mt-20" />
 
-              {error && !isSignupError && (
-                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm text-center">
-                  {error}
-                </div>
-              )}
+      <CardContent className="relative p-8">
 
-              <div className="grid gap-2">
-                <Label>Username</Label>
-                <Input
-                  placeholder="Enter username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="h-11 rounded-xl"
-                  required
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label>Password</Label>
-                  <a
-                    href="/forgot-password"
-                    className="ml-auto text-xs text-gray-800 hover:text-gray-600 hover:underline cursor-pointer transition"
-                  >
-                    Forgot?
-                  </a>
-                </div>
-<div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={(FormData as any).password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 rounded-xl pr-10"
-                  required
-                />
-                 <button
-      type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-    >
-     {showPassword ? (
-        <EyeOff size={18} />
-      ) : (
-        <Eye size={18} />
-      )}
-    </button>
-              </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-11 rounded-xl text-base"
-              >
-                {loading ? "Signing in..." : "Login"}
-              </Button>
-
-              <p className="text-center text-sm text-gray-500">
-                Don&apos;t have an account?{" "}
-                <a
-                  href="/signup"
-                  className="font-medium text-black hover:underline"
-                >
-                  Sign up
-                </a>
-              </p>
-            </div>
-          </form>
-
-          {/* RIGHT IMAGE */}
-          <div className="relative hidden md:block">
-            <Image
-              src="/round.png"
-              alt="Image"
-              fill
-              className="object-cover"
-              priority
-            />
-            <div className="absolute inset-0 bg-black/10" />
+     
+        <div className="flex flex-col items-center mb-8">
+         <div className="w-24 h-24 rounded-full overflow-hidden shadow-lg">
+               <Image
+    src="/logo.png"
+    alt="Logo"
+    width={96}
+    height={96}
+    className="object-cover"
+  /> 
+           
           </div>
 
-        </CardContent>
-      </Card>
-    </div>
-  );
+          <h1 className="text-2xl font-bold text-gray-900 text-center">
+            Welcome!
+          </h1>
+          <p className="text-gray-400 text-sm mt-2 text-center">
+            Sign in to continue to your account
+          </p>
+        </div>
+
+   
+        <form
+          className="space-y-6"
+          onSubmit={handleSubmit}
+        >
+
+          <div className="space-y-1">
+            <Label className="text-sm font-medium text-gray-700">
+              Username
+            </Label>
+            <Input
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="h-12 rounded-lg bg-gray-50 border border-gray-200
+              placeholder:text-gray-400
+              focus:ring-2 focus:ring-blue-500/40
+              focus:border-blue-500
+              transition-all duration-200"
+              required
+            />
+          </div>
+
+   
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <Label className="text-sm font-medium text-gray-700">
+                Password
+              </Label>
+              <a
+                href="/forgot-password"
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </div>
+
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                value={(FormData as any).password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-12 rounded-lg bg-gray-50 border border-gray-200 pr-10
+                placeholder:text-gray-400
+                focus:ring-2 focus:ring-blue-500/40
+                focus:border-blue-500
+                transition-all duration-200"
+                required
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 
+                text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                {showPassword ? (
+                  <EyeOff size={18} />
+                ) : (
+                  <Eye size={18} />
+                )}
+              </button>
+            </div>
+          </div>
+
+    
+          <Button
+            type="submit"
+            disabled={loading}
+            className="w-full h-12 rounded-lg text-sm font-medium text-white
+            bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400
+            hover:from-blue-700 hover:via-blue-600 hover:to-blue-500
+            shadow-sm hover:shadow-md hover:shadow-blue-100
+            active:scale-[0.98]
+            transition-all duration-200"
+          >
+            {loading ? "Signing in..." : "Sign In"}
+          </Button>
+
+        </form>
+
+
+        <div className="mt-6">
+          <p className="text-sm text-center text-gray-500">
+            Don&apos;t have an account?{" "}
+            <a
+              href="/signup"
+              className="text-blue-600 hover:underline font-medium"
+            >
+              Sign up
+            </a>
+          </p>
+        </div>
+
+      </CardContent>
+    </Card>
+  </div>
+);
+
+
 }

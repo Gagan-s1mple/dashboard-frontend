@@ -499,7 +499,7 @@ const handleCleanSubmit = () => {
         Loading...
       </span>
     ) : (
-      availableCredits
+      Number(availableCredits).toFixed(2)
     )}
   </p>
 

@@ -8,6 +8,14 @@ import { useRouter } from "next/navigation";
 import { useSignupStore } from "@/src/services/api/signup/signup-store";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -64,53 +72,85 @@ await signup(payload);
       setError(err.message || "Signup failed");
     }
   };
-
-  return (
-    <div
-      className={cn(
-        "bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen flex items-center justify-center p-6",
-        className,
-      )}
-      {...props}
+return (
+  <div
+    className={cn(
+      "min-h-screen flex items-center justify-center bg-gradient-to-br from-whitw-100 via-blue-100 to-blue-50 object-fill",
+      className
+    )}
+    {...props}
+  >
+    <Card
+      className="w-full max-w-5xl rounded-3xl overflow-hidden
+      shadow-[0_30px_80px_rgba(0,0,0,0.12)]
+      bg-grey-200/40"
     >
-      <Card className="overflow-hidden p-0 w-full max-w-5xl shadow-xl rounded-3xl">
-        <CardContent className="grid p-0 md:grid-cols-2">
+      <CardContent className="grid md:grid-cols-2 p-0">
 
-          {/* LEFT FORM */}
-          <form
-            className="p-8 md:p-12 flex flex-col justify-center"
-            onSubmit={handleSubmit}
-          >
-            <div className="flex flex-col gap-6 max-w-sm mx-auto w-full">
+        {/* LEFT IMAGE SECTION */}
+        <div className="relative hidden md:block">
+          <Image
+            src="/signup.png"
+            alt="Signup Visual"
+            fill
+            className="object-cover "
+            priority
+          />
+        </div>
 
-              <div className="text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">
-                  Create Account
-                </h1>
-                <p className="text-gray-500 text-sm mt-1">
-                  Create your account to continue
-                </p>
+       
+<div
+  className="relative px-10 py-10
+  backdrop-blur-2xl
+  bg-white/[20%]
+  border-l border-white/40"
+>
+
+
+          <div className="relative">
+
+            {/* Header */}
+            <div className="flex flex-col items-center text-center mb-8">
+
+              <div className="w-12 h-12 rounded-full overflow-hidden
+              bg-white/40 backdrop-blur-md
+              border border-white/50
+              flex items-center justify-center mb-3 shadow-md">
+                <Image
+                  src="/logo.png"
+                  alt="Logo"
+                  width={56}
+                  height={56}
+                  className="object-contain"
+                />
               </div>
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm text-center">
-                  {error}
-                </div>
-              )}
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900">
+                Create Account
+              </h1>
 
-              <div className="grid gap-2">
+              <p className="text-sm text-gray-700 mt-1">
+                Create your account to continue
+              </p>
+
+            </div>
+
+            <form className="space-y-5" onSubmit={handleSubmit}>
+
+              <div className="space-y-1">
                 <Label>Full Name</Label>
                 <Input
                   name="name"
                   placeholder="Enter your full name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className="h-11 rounded-xl"
+                  className="h-12 bg-white/40 border-white/50"
                   required
                 />
               </div>
 
-              <div className="grid gap-2">
+             
+              <div className="space-y-1">
                 <Label>Email</Label>
                 <Input
                   name="email"
@@ -118,84 +158,101 @@ await signup(payload);
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="h-11 rounded-xl"
+                  className="h-12 bg-white/40 border-white/50"
                   required
                 />
               </div>
 
-              <div className="grid gap-2">
+           
+              <div className="space-y-1">
                 <Label>Phone Number</Label>
                 <div className="flex items-center gap-2">
-                <select name="countrycode" 
-              
-              value={formData.countrycode} onChange={handleInputChange} className="h-11 w-20 px-2 rounded-xl border border-input bg-background text-sm">
-                <option value="+91">+91</option>
-                <option value="+1">+1</option>
-                <option value="+44">+44</option>
-                <option value="+61">+61</option>
-                </select>
-                <Input
-                  name="phno"
-                  placeholder="Enter your phone number"
-                  value={formData.phno}
-                  onChange={handleInputChange}
-                  className="h-11 rounded-xl"
-                  required
-                />
-              </div>
+                  <Select
+                    value={formData.countrycode}
+                    onValueChange={(value) =>
+                      handleInputChange({
+                        target: { name: "countrycode", value },
+                      } as any)
+                    }
+                  >
+                    <SelectTrigger className="h-12 bg-white/40 border-white/50">
+                      <SelectValue />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectItem value="+91">+91</SelectItem>
+                      <SelectItem value="+1">+1</SelectItem>
+                      <SelectItem value="+44">+44</SelectItem>
+                      <SelectItem value="+61">+61</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    name="phno"
+                    placeholder="Enter your phone number"
+                    value={formData.phno}
+                    onChange={handleInputChange}
+                    className="h-12 bg-white/40 border-white/50"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="grid gap-2">
+          
+              <div className="space-y-1">
                 <Label>Occupation</Label>
-                <select
-                  name="occupation"
+                <Select
                   value={formData.occupation}
-                  onChange={handleInputChange}
-                  className="h-11 px-3 rounded-xl border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  required
+                  onValueChange={(value) =>
+                    handleInputChange({
+                      target: { name: "occupation", value },
+                    } as any)
+                  }
                 >
-                  <option value="">Select Occupation</option>
-                  <option value="Student">Student</option>
-                  <option value="Employee">Employee</option>
-                  <option value="Manager">Manager</option>
-                  <option value="Founder">Founder</option>
-                </select>
+                  <SelectTrigger className="h-12 bg-white/40 border-white/50">
+                    <SelectValue placeholder="Select Occupation" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="Student">Student</SelectItem>
+                    <SelectItem value="Employee">Employee</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
+                    <SelectItem value="Founder">Founder</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
+              
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 rounded-xl text-base"
+                className="w-full h-12 rounded-lg text-white
+                bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400
+                shadow-md hover:shadow-lg transition-all duration-200"
               >
                 {loading ? "Creating..." : "Create Account"}
               </Button>
 
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-sm text-center text-gray-800">
                 Already have an account?{" "}
                 <a
                   href="/"
-                  className="font-medium text-black hover:underline"
+                  className="text-blue-700 hover:underline font-medium"
                 >
                   Login
                 </a>
               </p>
-            </div>
-          </form>
 
-          {/* RIGHT IMAGE */}
-          <div className="relative hidden md:block">
-            <Image
-              src="/round.png"
-              alt="Image"
-              fill
-              className="object-cover"
-              priority
-            />
-            <div className="absolute inset-0 bg-black/10" />
+            </form>
           </div>
+        </div>
 
-        </CardContent>
-      </Card>
-    </div>
-  );
+      </CardContent>
+    </Card>
+  </div>
+);
+
+
+
+
 }
