@@ -113,7 +113,7 @@ return (
 
        
 <div
-  className="relative px-10 py-10
+  className="relative px-10 py-6
   backdrop-blur-2xl
   bg-white/[20%]
   border-l border-white/40"
