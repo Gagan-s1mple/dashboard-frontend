@@ -166,7 +166,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         minute: "2-digit",
       });
     } catch (error) {
-      console.error("Error formatting timestamp:", error);
+  
       return "Invalid time";
     }
   };
@@ -210,7 +210,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       }
 
       if (currentDashboardData) {
-        console.log("📊 Loaded dashboard data from chat history");
+        
       }
     } else {
       setMessages([]);
@@ -292,7 +292,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       };
 
       recognitionRef.current.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
+     
         setIsListening(false);
 
         if (toastId) {
@@ -356,7 +356,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         const id = toast.info("Listening... Speak now.");
         setToastId(id);
       } catch (error) {
-        console.error("Error starting speech recognition:", error);
+
 
         if (toastId) {
           toast.dismiss(toastId);
@@ -443,7 +443,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       const id = toast.success(`File "${filename}" deleted successfully!`);
       setToastId(id);
     } catch (error: any) {
-      console.error("Delete error:", error);
+      
 
       if (toastId) {
         toast.dismiss(toastId);
@@ -530,7 +530,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(queryText.trim(), cleanFileNames);
     } catch (error) {
-      console.error("Error fetching dashboard:", error);
+
       addAssistantMessage(
         "Failed to generate dashboard. Please try again.",
         null,
@@ -589,7 +589,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
     } catch (error) {
-      console.error("Error fetching dashboard:", error);
+     
       addAssistantMessage(
         "Failed to generate dashboard. Please try again.",
         null,
@@ -645,7 +645,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(lastQuery, cleanFileNames);
     } catch (error) {
-      console.error("Error retrying dashboard:", error);
+  
       addAssistantMessage("Retry failed. Please try again.", null);
       setPendingQuery(null);
       setIsLoading(false);

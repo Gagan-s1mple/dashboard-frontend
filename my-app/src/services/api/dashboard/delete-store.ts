@@ -29,14 +29,11 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
         throw new Error("Authentication required. Please login first.");
       }
 
-      console.log("Deleting file:", { filename, hasToken: !!token });
-
-      // IMPORTANT: Backend expects { "filenames": ["filename.csv"] } (array of strings)
       const requestBody = {
         filenames: [filename] // Wrap filename in an array
       };
 
-      console.log("Delete request body:", requestBody);
+    
 
       const response = await fetch(`${url.backendUrl}/api/delete-file`, {
         method: "DELETE",
@@ -57,11 +54,7 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
         }
         
         const errorText = await response.text();
-        console.error("Delete failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-        });
+     
         
         // Try to parse the error response
         let errorMessage = errorText;
@@ -73,8 +66,8 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
             errorMessage = errorJson.message;
           }
         } catch (error) {
-            console.log("Error deleting the file.Please Try again",error)
-          // If parsing fails, use the raw error text
+
+          throw error;
         }
         
         throw new Error(
@@ -84,12 +77,12 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
       }
 
       const data = await response.json();
-      console.log("Delete response:", data);
+
 
       set({ loading: false });
       return data;
     } catch (err: any) {
-      console.error("Delete error:", err);
+
       set({ loading: false, error: err.message });
       throw err;
     }

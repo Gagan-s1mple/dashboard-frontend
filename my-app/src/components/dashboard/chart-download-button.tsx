@@ -63,7 +63,8 @@ export const ChartDownloadButton = ({ chartOption, chartTitle }: ChartDownloadBu
         }
       }
     } catch (error) {
-      console.error("Failed to download chart:", error);
+     
+      throw error
       toast.error("Failed to download chart");
     }
 

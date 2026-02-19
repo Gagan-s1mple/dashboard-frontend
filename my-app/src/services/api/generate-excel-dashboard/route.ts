@@ -40,10 +40,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Excel generation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate Excel dashboard' },
-      { status: 500 }
-    );
+    throw error
+
   }
 }

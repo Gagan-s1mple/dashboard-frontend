@@ -23,7 +23,6 @@ export const useSignupStore = create<SignupState>((set) => ({
     try {
       set({ loading: true, error: null });
 
-      console.log("Signup body :::", JSON.stringify(payload));
 
       const response = await fetch(`${url.backendUrl}/api/signup`, {
         method: "POST",
@@ -39,7 +38,7 @@ export const useSignupStore = create<SignupState>((set) => ({
       }
 
       const data = await response.json();
-      console.log("Signup response :::", data);
+   
 
       set({ loading: false });
       return data;

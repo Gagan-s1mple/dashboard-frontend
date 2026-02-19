@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { url } from "../api-url";
 
 // Helper function to get auth token
@@ -20,10 +21,6 @@ export async function fetchDataSources() {
       "Authorization": `Bearer ${token}`,
     };
 
-    console.log("Fetching data sources with token:", {
-      hasToken: !!token,
-      url: `${url.backendUrl}/api/list-files`,
-    });
 
     const response = await fetch(`${url.backendUrl}/api/list-files`, {
       method: "GET",
@@ -41,33 +38,27 @@ export async function fetchDataSources() {
       }
       
       const errorText = await response.text();
-      console.error("Failed to fetch data sources:", {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      });
+ 
       throw new Error(`Failed to fetch data sources: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log("Data sources fetched:", data);
+   
     
     // Handle different response structures
     if (data.files && Array.isArray(data.files)) {
-      console.log("Using 'files' array from response:", data.files.length);
+
       return data.files; // This returns array of strings
     } else if (data.dataSources && Array.isArray(data.dataSources)) {
-      console.log("Using 'dataSources' array from response:", data.dataSources.length);
       return data.dataSources;
     } else if (Array.isArray(data)) {
-      console.log("Response is directly an array:", data.length);
+
       return data;
     }
-    
-    console.warn("Unexpected response structure, returning empty array:", data);
+
     return [];
   } catch (error) {
-    console.error("Error in fetchDataSources:", error);
+
     throw error;
   }
 }

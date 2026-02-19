@@ -103,7 +103,7 @@ export const GridStackWrapper: React.FC<GridStackWrapperProps> = ({
           }
         });
       } catch (error) {
-        console.error('Error initializing GridStack:', error);
+throw error
       }
     };
 
@@ -116,7 +116,7 @@ export const GridStackWrapper: React.FC<GridStackWrapperProps> = ({
         try {
           gridInstanceRef.current.destroy();
         } catch (error) {
-          console.error('Error destroying GridStack:', error);
+       throw error
         }
       }
     };

@@ -56,7 +56,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       });
 
       const data = await response.json().catch(() => null);
-      console.log("Login response data:", data);
+      
       
       if (!response.ok) {
         const message =

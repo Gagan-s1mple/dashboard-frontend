@@ -83,7 +83,7 @@ export const loadExistingFiles = async (): Promise<UploadedFile[]> => {
 
     return formattedFiles;
   } catch (error: any) {
-    console.error("Failed to load existing files:", error);
+  throw error
     return [];
   }
 };
@@ -111,7 +111,7 @@ export const useFileOperations = () => {
         uploadedAt: new Date(),
       }));
     } catch (error) {
-      console.error("Upload failed:", error);
+
       throw error;
     }
   };
@@ -121,7 +121,7 @@ export const useFileOperations = () => {
       await deleteFile(filename);
       return true;
     } catch (error) {
-      console.error("Delete failed:", error);
+
       throw error;
     }
   };

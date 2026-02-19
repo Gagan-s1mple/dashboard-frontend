@@ -210,7 +210,7 @@ export const DashboardCard = ({
       XLSX.writeFile(wb, `dashboard-${Date.now()}.xlsx`);
       toast.success("Excel file downloaded successfully!");
     } catch (error) {
-      console.error("Excel export failed:", error);
+      
       toast.error("Failed to export as Excel");
     }
   };
@@ -277,7 +277,7 @@ export const DashboardCard = ({
       downloadFile(blob, `dashboard-${Date.now()}.html`);
       toast.success("HTML file downloaded successfully!");
     } catch (error) {
-      console.error("HTML export failed:", error);
+ 
       toast.error("Failed to export as HTML");
     }
   };
@@ -353,7 +353,7 @@ export const DashboardCard = ({
         }
       }
     } catch (error) {
-      console.error("Export failed:", error);
+
       toast.error("Failed to export. Please try again.");
     } finally {
       setIsExporting(false);

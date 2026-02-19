@@ -38,21 +38,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       }
 
       const form = new FormData();
-      // Don't append email since backend doesn't need it
-      // form.append("email", email); // REMOVED
 
-      // Append each file
       files.forEach((files) => {
-        form.append("files", files); // Using key "file" for all files
+        form.append("files", files); 
       });
 
-      console.log("Uploading files:", {
-        email, // Keeping for logging only
-        fileCount: files.length,
-        fileNames: files.map((f) => f.name),
-        fileSizes: files.map((f) => f.size),
-        hasToken: !!token,
-      });
 
       const response = await fetch(`${url.backendUrl}/api/upload-file`, {
         method: "POST",
@@ -71,11 +61,7 @@ export const useUploadStore = create<UploadState>((set, get) => ({
         }
 
         const errorText = await response.text();
-        console.error("Upload failed:", {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-        });
+
         throw new Error(
           errorText ||
             `Upload failed: ${response.status} ${response.statusText}`,
@@ -83,19 +69,17 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       }
 
       const data = await response.json();
-      console.log("Upload response:", data);
 
-      // Save filenames and email locally for UI and future queries
       set({
         filenames: files.map((f) => f.name),
-        uploadedEmail: email, // Still store email locally for UI
+        uploadedEmail: email, 
         uploadSuccess: true,
       });
 
       set({ uploading: false });
       return data;
     } catch (err: any) {
-      console.error("Upload error:", err);
+    
       set({ uploading: false, error: err.message });
       throw err;
     }

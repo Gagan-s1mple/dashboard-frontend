@@ -70,7 +70,7 @@ class ChatHistoryAPI {
 
       return [];
     } catch (error) {
-      console.error("Failed to fetch chat titles:", error);
+
       return [];
     }
   }
@@ -84,7 +84,7 @@ class ChatHistoryAPI {
         return [];
       }
 
-      console.log("📤 Fetching history for chat:", chatId);
+      
 
       const response = await fetch(
         `${this.baseUrl}/api/history?chat_id=${chatId}`,
@@ -97,15 +97,15 @@ class ChatHistoryAPI {
         },
       );
 
-      console.log("📥 Response status:", response.status);
+      // ("📥 Response status:", response.status);
 
       if (!response.ok) {
-        console.error(" Failed to fetch history");
+      
         return [];
       }
 
       const data = await response.json();
-      console.log("Chat history received:", data);
+      // ("Chat history received:", data);
 
       // Extract messages from the nested structure
       if (data && data.chats && data.chats.messages) {
@@ -115,11 +115,11 @@ class ChatHistoryAPI {
       } else if (data && data.messages && Array.isArray(data.messages)) {
         return data.messages;
       } else {
-        console.warn("Unexpected response format:", data);
+       
         return [];
       }
     } catch (error) {
-      console.error(` Failed to fetch history for chat ${chatId}:`, error);
+
       return [];
     }
   }
@@ -258,9 +258,9 @@ export const useChatStore = create<ChatStore>()(
        * 3. Create a brand new unsaved chat (not yet in backend)
        */
       initializeOnLogin: async () => {
-        console.log(
-          "🔐 INITIALIZE ON LOGIN: Clearing current chat, fetching titles",
-        );
+        // (
+        //   "🔐 INITIALIZE ON LOGIN: Clearing current chat, fetching titles",
+        // );
 
         set({
           currentChatId: null,
@@ -290,7 +290,7 @@ export const useChatStore = create<ChatStore>()(
           }
         }
 
-        console.log("✅ Login initialization complete");
+        // ("✅ Login initialization complete");
       },
 
       /**
@@ -299,9 +299,9 @@ export const useChatStore = create<ChatStore>()(
        * Keep chat history so it can be loaded when user logs back in
        */
       cleanupOnLogout: () => {
-        console.log(
-          "🚪 CLEANUP ON LOGOUT: Clearing current selection only, keeping chat history",
-        );
+        // (
+        //   "🚪 CLEANUP ON LOGOUT: Clearing current selection only, keeping chat history",
+        // );
         set({
           // KEEP chatTitles and chats for when user logs back in
           // ONLY clear the current session state
@@ -324,7 +324,7 @@ export const useChatStore = create<ChatStore>()(
 
         try {
           const titles = await chatHistoryAPI.fetchChatTitles();
-          console.log("📋 Fetched chat titles from backend:", titles);
+          // ("📋 Fetched chat titles from backend:", titles);
 
           // Ensure titles is always an array
           const safeTitles = Array.isArray(titles) ? titles : [];
@@ -334,7 +334,7 @@ export const useChatStore = create<ChatStore>()(
             isLoadingTitles: false,
           });
         } catch (error) {
-          console.error("Failed to fetch titles:", error);
+         
           set({
             chatTitles: [],
             isLoadingTitles: false,
@@ -375,7 +375,7 @@ export const useChatStore = create<ChatStore>()(
        * Set the current message ID for the active chat
        */
       setCurrentMessageId: (messageId: string) => {
-        console.log(`📝 Setting current message ID to: ${messageId}`);
+        // (`📝 Setting current message ID to: ${messageId}`);
         set({ currentMessageId: messageId });
       },
 
@@ -384,11 +384,11 @@ export const useChatStore = create<ChatStore>()(
        */
       fetchChatHistory: async (chatId: string) => {
         if (!chatId) {
-          console.error("❌ No chat ID provided");
+          
           return;
         }
 
-        console.log(`📜 Fetching history for chat: ${chatId}`);
+        // (`📜 Fetching history for chat: ${chatId}`);
         set({ isLoadingHistory: true });
 
         try {
@@ -472,11 +472,11 @@ export const useChatStore = create<ChatStore>()(
             isNewUnsavedChat: false,
           }));
 
-          console.log(
-            `✅ Loaded chat ${chatId} with ${messages.length} messages, message ID: ${currentMessageId}`,
-          );
+          // (
+          //   `✅ Loaded chat ${chatId} with ${messages.length} messages, message ID: ${currentMessageId}`,
+          // );
         } catch (error) {
-          console.error(`Failed to fetch history for chat ${chatId}:`, error);
+          
           set({ isLoadingHistory: false });
         }
       },
@@ -486,7 +486,7 @@ export const useChatStore = create<ChatStore>()(
        */
       createNewChat: () => {
         const newChatId = get().getNextChatId();
-        console.log(`🆕 Creating NEW UNSAVED chat with ID: ${newChatId}`);
+        // (`🆕 Creating NEW UNSAVED chat with ID: ${newChatId}`);
 
         set({
           currentChatId: newChatId,
@@ -507,7 +507,7 @@ export const useChatStore = create<ChatStore>()(
       deleteChat: async (chatId: string) => {
         if (!chatId) return;
 
-        console.log(`🗑️ Deleting chat ${chatId}`);
+   
 
         const { currentChatId } = get();
         const wasCurrentChat = currentChatId === chatId;
@@ -518,7 +518,7 @@ export const useChatStore = create<ChatStore>()(
         });
 
         if (response.success) {
-          console.log("✅ Chat deleted in backend:", response);
+      
 
           // ✅ Only update UI AFTER API confirms success
           set((state) => {
@@ -567,7 +567,7 @@ export const useChatStore = create<ChatStore>()(
           return { success: false, message: "Invalid chat ID or title" };
         }
 
-        console.log(`✏️ Renaming chat ${chatId} to: ${newTitle}`);
+        // (`✏️ Renaming chat ${chatId} to: ${newTitle}`);
 
         try {
           // ✅ Call API FIRST — no optimistic update
@@ -577,7 +577,7 @@ export const useChatStore = create<ChatStore>()(
           });
 
           if (response.success) {
-            console.log("✅ Title updated in backend:", response);
+            // ("✅ Title updated in backend:", response);
 
             // ✅ Only update UI AFTER API confirms success
             set((state) => {
@@ -611,7 +611,7 @@ export const useChatStore = create<ChatStore>()(
             };
           }
         } catch (error) {
-          console.error("❌ Failed to update chat title:", error);
+  
           // No UI change — return error for toast
           return {
             success: false,
@@ -633,7 +633,7 @@ export const useChatStore = create<ChatStore>()(
         } = get();
 
         if (!currentChatId) {
-          console.error("No current chat selected");
+          
           return;
         }
 
@@ -714,9 +714,9 @@ export const useChatStore = create<ChatStore>()(
           };
         });
 
-        console.log(
-          `✅ Added user message to chat ${currentChatId}, message ID now: ${nextMessageId}`,
-        );
+        // (
+        //   `✅ Added user message to chat ${currentChatId}, message ID now: ${nextMessageId}`,
+        // );
       },
 
       /**
@@ -726,7 +726,7 @@ export const useChatStore = create<ChatStore>()(
         const { currentChatId, currentChatMessages, currentMessageId } = get();
 
         if (!currentChatId) {
-          console.error("No current chat selected");
+     
           return;
         }
 
@@ -773,9 +773,9 @@ export const useChatStore = create<ChatStore>()(
           };
         });
 
-        console.log(
-          `✅ Added assistant message to chat ${currentChatId}, message ID now: ${nextMessageId}`,
-        );
+        // (
+        //   `✅ Added assistant message to chat ${currentChatId}, message ID now: ${nextMessageId}`,
+        // );
       },
 
       // ===== NEW: UI State Actions =====
