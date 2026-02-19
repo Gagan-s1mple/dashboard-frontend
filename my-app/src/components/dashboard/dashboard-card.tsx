@@ -17,6 +17,7 @@ import {
   FileJson,
   Image,
   Calendar,
+  Database,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as htmlToImage from "html-to-image";
@@ -210,7 +211,6 @@ export const DashboardCard = ({
       XLSX.writeFile(wb, `dashboard-${Date.now()}.xlsx`);
       toast.success("Excel file downloaded successfully!");
     } catch (error) {
-      
       toast.error("Failed to export as Excel");
     }
   };
@@ -277,7 +277,6 @@ export const DashboardCard = ({
       downloadFile(blob, `dashboard-${Date.now()}.html`);
       toast.success("HTML file downloaded successfully!");
     } catch (error) {
- 
       toast.error("Failed to export as HTML");
     }
   };
@@ -353,7 +352,6 @@ export const DashboardCard = ({
         }
       }
     } catch (error) {
-
       toast.error("Failed to export. Please try again.");
     } finally {
       setIsExporting(false);
@@ -382,7 +380,7 @@ export const DashboardCard = ({
         <CardContent className="p-6">
           <div className="min-h-[400px] flex flex-col items-center justify-center text-slate-400">
             <div className="p-4 rounded-full bg-slate-200 mb-4">
-              <BarChart className="w-12 h-12" />
+              <Database className="w-12 h-12" />
             </div>
             <p className="text-sm font-semibold text-slate-600 mb-1">
               No Dashboard Data Available
@@ -405,10 +403,13 @@ export const DashboardCard = ({
               <LayoutDashboard className="w-5 h-5 text-white" />
             </div>
             <div>
+              {/* Conditionally render title based on what data is available */}
               <CardTitle className="text-xl font-bold text-slate-800">
-                AI-Generated Dashboard
+                {hasCharts || hasKPIs ? "AI-Generated Dashboard" : "Data Table"}
               </CardTitle>
-              <p className="text-sm text-slate-600">Complete Overview</p>
+              <p className="text-sm text-slate-600">
+                {hasCharts || hasKPIs ? "Complete Overview" : "Tabular Data View"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -445,7 +446,8 @@ export const DashboardCard = ({
                     onClick={() => setShowDownloadMenu(false)}
                   />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
-                    <div className="p-2">
+                    {/* Add max-height and make it scrollable */}
+                    <div className="p-2 max-h-[400px] overflow-y-auto">
                       <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">
                         IMAGE
                       </div>
@@ -578,15 +580,9 @@ export const DashboardCard = ({
           </div>
         ) : (
           <div className="space-y-6">
-            {/* REMOVED: Content section - now shown only in main message */}
-
             {/* KPIs section - only show if has KPIs */}
             {hasKPIs && (
               <div>
-                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  Key Performance Indicators
-                </h3> */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {dashboardData.kpis.map((kpi: any, i: number) =>
                     renderKPICard(kpi, i),
@@ -598,10 +594,6 @@ export const DashboardCard = ({
             {/* Charts section - only show if has charts */}
             {hasCharts && (
               <div>
-                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <BarChart className="w-5 h-5 text-indigo-600" />
-                  Visualizations
-                </h3> */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {dashboardData.charts.map((chart: any, i: number) =>
                     renderChart(chart, i),
@@ -615,10 +607,6 @@ export const DashboardCard = ({
               Array.isArray(dashboardData.table) &&
               dashboardData.table.length > 0 && (
                 <div>
-                  {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-orange-600" />
-                  Data Table
-                </h3> */}
                   <div className="overflow-x-auto border rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">

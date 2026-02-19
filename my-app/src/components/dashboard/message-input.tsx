@@ -112,12 +112,14 @@ export const MessageInput = ({
             <Mic className="w-5 h-5" />
           </Button>
 
-          {!isLoading && lastQuery && (
+          {/* Always show Retry button if there's a lastQuery, regardless of loading state */}
+          {lastQuery && (
             <Button
               onClick={onRetry}
               variant="ghost"
               className="flex items-center gap-1.5 px-3 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
               title="Retry last query"
+              disabled={isLoading} // Disable while loading, but still show
             >
               <RotateCcw className="w-4 h-4" />
               <span className="text-sm font-medium">Retry Last Prompt</span>
@@ -147,7 +149,6 @@ export const MessageInput = ({
               <ArrowUp className="w-4 h-4" />
             </Button>
           )}
-          
         </div>
       </div>
     </div>

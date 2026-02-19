@@ -208,10 +208,21 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         setMessages(convertedMessages);
       }
 
+      // Set lastQuery from the last user message in this chat
+      const lastUserMessage = currentChatMessages
+        .filter(msg => msg.role === 'user')
+        .pop();
+        
+      if (lastUserMessage) {
+        setLastQuery(lastUserMessage.content);
+      }
+
       if (currentDashboardData) {
       }
     } else {
       setMessages([]);
+      // Clear lastQuery when no messages
+      setLastQuery('');
     }
   }, [currentChatMessages, currentDashboardData]);
 
