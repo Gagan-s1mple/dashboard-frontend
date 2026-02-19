@@ -42,14 +42,26 @@ export const DashboardCard = ({
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const dashboardCardRef = useRef<HTMLDivElement>(null);
 
-  // Process dashboard data to remove empty sections
-  const hasKPIs = dashboardData?.kpis && Array.isArray(dashboardData.kpis) && dashboardData.kpis.length > 0;
-  const hasCharts = dashboardData?.charts && Array.isArray(dashboardData.charts) && dashboardData.charts.length > 0;
-  const hasContent = dashboardData?.content && typeof dashboardData.content === 'string' && dashboardData.content.trim() !== '';
+  const hasKPIs =
+    dashboardData?.kpis &&
+    Array.isArray(dashboardData.kpis) &&
+    dashboardData.kpis.length > 0;
+  const hasCharts =
+    dashboardData?.charts &&
+    Array.isArray(dashboardData.charts) &&
+    dashboardData.charts.length > 0;
+  const hasContent =
+    dashboardData?.content &&
+    typeof dashboardData.content === "string" &&
+    dashboardData.content.trim() !== "";
+  const hasTable =
+    dashboardData?.table &&
+    Array.isArray(dashboardData.table) &&
+    dashboardData.table.length > 0;
 
   const renderChart = (chartOption: any, index: number) => {
     const fixedChartOption = { ...chartOption };
-    
+
     // Remove the title from inside the chart - only show in header
     if (fixedChartOption.title) {
       fixedChartOption.title = { ...fixedChartOption.title, show: false };
@@ -72,7 +84,10 @@ export const DashboardCard = ({
     const chartTitle = chartOption.title?.text || `Chart ${index + 1}`;
 
     return (
-      <Card key={`chart-${chartTitle}-${index}`} className="shadow-sm chart-container relative group">
+      <Card
+        key={`chart-${chartTitle}-${index}`}
+        className="shadow-sm chart-container relative group"
+      >
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">{chartTitle}</CardTitle>
           <ChartDownloadButton
@@ -98,19 +113,27 @@ export const DashboardCard = ({
       return null;
     }
 
-    let badgeVariant: "secondary" | "outline" | "default" | "destructive" = "secondary";
+    let badgeVariant: "secondary" | "outline" | "default" | "destructive" =
+      "secondary";
     let badgeIcon = "📊";
 
     if (kpi.title.includes("Sales") || kpi.title.includes("Revenue")) {
       badgeVariant = "secondary";
       badgeIcon = "₹";
-    } else if (kpi.title.includes("Transaction") || kpi.title.includes("Count")) {
+    } else if (
+      kpi.title.includes("Transaction") ||
+      kpi.title.includes("Count")
+    ) {
       badgeVariant = "outline";
       badgeIcon = "#";
     } else if (kpi.title.includes("Rating") || kpi.title.includes("Score")) {
       badgeVariant = "default";
       badgeIcon = "⭐";
-    } else if (kpi.title.includes("Profit") || kpi.title.includes("Income") || kpi.title.includes("Margin")) {
+    } else if (
+      kpi.title.includes("Profit") ||
+      kpi.title.includes("Income") ||
+      kpi.title.includes("Margin")
+    ) {
       badgeVariant = "destructive";
       badgeIcon = "💰";
     }
@@ -338,7 +361,7 @@ export const DashboardCard = ({
   };
 
   // If no data at all, show empty state
-  if (!dashboardData || (!hasKPIs && !hasCharts)) {
+  if (!dashboardData || (!hasKPIs && !hasCharts && !hasContent && !hasTable)) {
     return (
       <Card className="w-full shadow-2xl bg-white overflow-hidden">
         <CardHeader className="border-b bg-white px-6 py-4">
@@ -588,41 +611,48 @@ export const DashboardCard = ({
             )}
 
             {/* Table section if available */}
-            {dashboardData.table && Array.isArray(dashboardData.table) && dashboardData.table.length > 0 && (
-              <div>
-                {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            {dashboardData.table &&
+              Array.isArray(dashboardData.table) &&
+              dashboardData.table.length > 0 && (
+                <div>
+                  {/* <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <FileText className="w-5 h-5 text-orange-600" />
                   Data Table
                 </h3> */}
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {Object.keys(dashboardData.table[0]).map((key) => (
-                          <th
-                            key={key}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {key.replace(/_/g, ' ')}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dashboardData.table.map((row: any, idx: number) => (
-                        <tr key={idx}>
-                          {Object.values(row).map((value: any, colIdx: number) => (
-                            <td key={colIdx} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {value}
-                            </td>
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {Object.keys(dashboardData.table[0]).map((key) => (
+                            <th
+                              key={key}
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              {key.replace(/_/g, " ")}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {dashboardData.table.map((row: any, idx: number) => (
+                          <tr key={idx}>
+                            {Object.values(row).map(
+                              (value: any, colIdx: number) => (
+                                <td
+                                  key={colIdx}
+                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                >
+                                  {value}
+                                </td>
+                              ),
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         )}
       </CardContent>

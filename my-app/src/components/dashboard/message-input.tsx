@@ -1,6 +1,5 @@
 import React, { useRef } from "react";
 import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
 import { Plus, Mic, ArrowUp, CircleStop, RotateCcw, X } from "lucide-react";
 import { DatabaseFile } from "@/src/services/utils/file-handling";
 import { Badge } from "../ui/badge";
@@ -46,15 +45,15 @@ export const MessageInput = ({
   };
 
   return (
-    <div className="backdrop-blur-xl bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-2xl flex flex-col flex-items-center mx-auto">
+    <div className=" bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-3xl">
       <div className="p-4 pb-0 relative">
-        <Textarea
+        <textarea
           ref={inputRef}
           placeholder="Ask me anything..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          className="w-full text-gray-700 bg-transparent text-base outline-none placeholder:text-gray-400 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="w-full text-gray-700 bg-transparent text-base outline-none placeholder:text-gray-400 pr-20 resize-none"
           rows={2}
         />
       </div>
@@ -112,7 +111,7 @@ export const MessageInput = ({
           >
             <Mic className="w-5 h-5" />
           </Button>
-          
+
           {!isLoading && lastQuery && (
             <Button
               onClick={onRetry}
@@ -121,10 +120,10 @@ export const MessageInput = ({
               title="Retry last query"
             >
               <RotateCcw className="w-4 h-4" />
-              <span className="text-sm font-medium">Retry</span>
+              <span className="text-sm font-medium">Retry Last Prompt</span>
             </Button>
           )}
-          
+
           {isLoading ? (
             <Button
               onClick={onStopRequest}

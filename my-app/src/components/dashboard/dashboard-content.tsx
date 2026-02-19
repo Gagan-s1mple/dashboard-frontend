@@ -48,6 +48,7 @@ import { Textarea } from "../ui/textarea";
 import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store";
 import { useChatStore } from "@/src/services/api/chat/chat-store";
 import { useUploadStore } from "@/src/services/api/dashboard/upload-store";
+import { useSidebarStore } from "@/src/services/api/chat/sidebar-store";
 
 // Import components
 import { DashboardCard } from "./dashboard-card";
@@ -133,6 +134,9 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     uploadedFiles: storeUploadedFiles,
     availableFiles: storeAvailableFiles,
   } = useChatStore();
+
+  // ADD THIS LINE - Get sidebar collapsed state
+  const { isCollapsed } = useSidebarStore();
 
   // Sync with store on mount and when store changes
   useEffect(() => {
@@ -947,8 +951,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col min-h-0 ">
-          <div className="flex-1 overflow-y-auto px-6 py-4 ">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto px-4 pb-40">
             <div className="max-w-full mx-auto space-y-6">
               {messages.map((message, index) => {
                 // Create a truly unique key
@@ -959,7 +963,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                     {message.type === "user" ? (
                       <>
                         <div className="flex justify-end ">
-                          <div className="inline-block max-w-[80%] rounded-2xl px-5 py-3 bg-gray-900 text-white shadow-sm">
+                          <div className="inline-block max-w-full rounded-2xl px-5 py-3 bg-gray-900 text-white shadow-sm">
                             <p className="text-md leading-relaxed whitespace-pre-wrap break-words">
                               {message.content}
                             </p>
@@ -1030,7 +1034,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                               {formatTimeString(message.timestamp)}
                             </span> */}
                           </div>
-                          <Button
+                          {/* <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 hover:bg-gray-200"
@@ -1044,7 +1048,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                             ) : (
                               <Copy className="h-3 w-3 text-gray-500" />
                             )}
-                          </Button>
+                          </Button> */}
                         </div>
                       </div>
                     )}
@@ -1057,8 +1061,17 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
             </div>
           </div>
 
-          <div className="bg-transparent backdrop-blur-sm fixed w-full  bottom-0 mr-20 mt-auto mx-auto">
-            <div className=" mx-auto backdrop-blur-2xl bg-transparent px-6 py-3 flex-items-center">
+   
+          
+          {/* WITH this div: */}
+          <div 
+            className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300"
+            style={{ 
+              left: isCollapsed ? '4rem' : '18rem',
+              right: '2rem'
+            }}
+          >
+            <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto">
               <MessageInput
                 inputValue={inputValue}
                 setInputValue={setInputValue}
