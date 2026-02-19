@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { ArrowLeft, Settings, Key, User, Shield, Bell, Globe,Wallet,ToggleLeft,BarChart,LineChart } from "lucide-react";
+import { ArrowLeft, Settings, Key, User, Shield, Bell, Globe,Wallet,ToggleLeft,BarChart,LineChart, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import {url} from "@/src/services/api/api-url";
@@ -27,10 +27,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select"
-
+import Image from "next/image";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 
 export function SettingsPage() {
-const router = useRouter();
+
 const [userEmail, setUserEmail] = useState<string>("");
 const [userName, setUserName] = useState<string>("");
 const [credits, setCredits] = useState(1);
@@ -64,6 +65,16 @@ const [cleanOptions, setCleanOptions] = useState({
   normalizeColumns: false,
   trimWhitespace: false,
 });
+
+
+const router = useRouter();
+
+const handleLogout = () => {
+  localStorage.removeItem("user_email");
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("token_type");
+  router.push("/");
+};
 
   useEffect(() => {
     // Get user email from localStorage
@@ -334,39 +345,64 @@ const handleCleanSubmit = () => {
   return (
     <>
     <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-    <div className=" p-4 md:p-6">
-      <div className="w-full  mx-auto">
+    <div className=" p-3 md:p-6">
+      <div className="w-full">
         {/* Header */}
-       <div className="flex justify-end mb-3">
-  <div className="flex flex-col items-end gap-2">
+<div className="flex items-center justify-between mb-6">
+  <div className="flex items-center gap-3">
+  {/* Left Side */}
+    <div className="w-auto h-auto rounded-full overflow-hidden shadow-lg">
+      <Image
+       src="/logo.png"
+       alt="Logo"
+       width={46}
+       height={46}
+       className="object-cover"
+     /> 
+              
+    </div>
+  <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+    <Settings className="w-6 h-6" />
+    Settings
+  </h1>
+</div>
+<div className="flex items-center gap-4">
+        {userEmail && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <User className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-medium text-slate-800">
+                  {userEmail.split("@")[0]}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleBack} className="cursor-pointer">
+               
+    <ArrowLeft className="w-4 h-4 mr-2" />
+    Back to Dashboard
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+</div>
 
-   
-
-    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-      <Settings className="w-6 h-6" />
-      Settings
-    </h1>
-   <Button
-      onClick={handleBack}
-      variant="outline"
-      className="border-slate-300 text-slate-700 hover:bg-slate-50"
-    >
-      <ArrowLeft className="w-4 h-4 mr-2" />
-      Back to Dashboard
-    </Button>
-
-  </div>
 </div>
 
         {/* Settings Cards */}
-       <div className="w-full flex flex-col md:flex-row gap-5 flex-wrap">
+       <div className="w-full flex flex-row md:flex-row px-0 flex-wrap">
 
           {/* User Profile Card */}
-          <div className="w-full md:w-[400px] mx-auto">
+          <div className="w-full md:w-[400px]">
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
+                <User className="w-3 h-5" />
                 User Profile
               </CardTitle>
               <CardDescription>Your account information</CardDescription>
@@ -413,7 +449,7 @@ const handleCleanSubmit = () => {
           <input
             type="checkbox"
             checked={cleanOptions.keepNulls}
-            onChange={() => handleCheckboxChange("keepNulls")}
+            // onChange={() => handleCheckboxChange("keepNulls")}
           />
         </label>
 
@@ -422,7 +458,7 @@ const handleCleanSubmit = () => {
           <input
             type="checkbox"
             checked={cleanOptions.removeDuplicates}
-            onChange={() => handleCheckboxChange("removeDuplicates")}
+            // onChange={() => handleCheckboxChange("removeDuplicates")}
           />
         </label>
 
@@ -431,7 +467,7 @@ const handleCleanSubmit = () => {
           <input
             type="checkbox"
             checked={cleanOptions.normalizeColumns}
-            onChange={() => handleCheckboxChange("normalizeColumns")}
+            // onChange={() => handleCheckboxChange("normalizeColumns")}
           />
         </label>
 
@@ -440,7 +476,7 @@ const handleCleanSubmit = () => {
           <input
             type="checkbox"
             checked={cleanOptions.trimWhitespace}
-            onChange={() => handleCheckboxChange("trimWhitespace")}
+            // onChange={() => handleCheckboxChange("trimWhitespace")}
           />
         </label>
 
@@ -461,13 +497,13 @@ const handleCleanSubmit = () => {
 
           
 {/* {credits card} */}
-<div className="w-full max-w-4xl mx-auto">
-  <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden">
+<div className="w-full lg:max-w-3xl lg:mx-8 mr-14
+">
+
+  <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden mr-20">
     <CardContent className="pt-5 pb-8 px-4 md:px-8">
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 items-start">
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
 
-
-   
         <div className="space-y-6">
           <div className="space-y-1">
   <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
@@ -512,12 +548,19 @@ const handleCleanSubmit = () => {
 </div>
 
 <Dialog>
+  <div className="flex flex-col sm:flex-row gap-4 mt-4">
   <DialogTrigger asChild>
     <Button className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400">
       Add Credits
     </Button>
+    
   </DialogTrigger>
-
+     <Button className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
+  onClick={() => setShowAnalytics((prev) => !prev)}
+>
+  {showAnalytics ? "Hide Usage Analytics" : "View Usage Analytics"}
+</Button>
+</div>
   <DialogContent className="rounded-2xl w-[65%] md:max-w-md">
 
    <DialogHeader>
@@ -583,7 +626,7 @@ const handleCleanSubmit = () => {
   <p className="text-sm font-semibold text-slate-800 mb-4">
     Recent Activity
   </p>
-
+<p className="text-xs text-slate-500 mt-1">your recent credit purchase activity is shown below</p>
   <div className="space-y-4 text-sm text-slate-600">
     {recentActivity.map((item, index) => (
       <div
@@ -609,104 +652,113 @@ const handleCleanSubmit = () => {
 </div>
 
 
-         <Button
-  variant="outline"
-  className="rounded-xl border-slate-300 hover:bg-slate-50"
-  onClick={() => setShowAnalytics((prev) => !prev)}
->
-  {showAnalytics ? "Hide Usage Analytics" : "View Usage Analytics"}
-</Button>
+       
 </div>
 </div>
 </CardContent>
 </Card>
 
   {showAnalytics && (
- <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg shadow-xl overflow-hidden">
+      <div className="w-full md:w-[400px] lg:w-full">
+<Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg overflow-hidden self-start">
 
-    <CardHeader className="flex flex-row items-center justify-between">
-      <div>
-        <div className="px-3 py-3">
-        <CardTitle>Usage Analytics</CardTitle>
+
+<CardHeader className="space-y-6">
+
+  {/* Top Section */}
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+
+    {/* Left Side - Title + Description */}
+    <div>
+      <CardTitle className="text-lg font-semibold">
+        Usage Analytics
+      </CardTitle>
+      <CardDescription>
+        Usage trends for your credit consumption
+      </CardDescription>
+    </div>
+
+    {/* Chart Toggle Buttons */}
+    <div className="flex gap-2">
+      <Button
+        size="sm"
+        variant={chartType === "bar" ? "default" : "outline"}
+        onClick={() => setChartType("bar")}
+        className="w-1/2 lg:w-auto rounded-xl"
+      >
+        <BarChart className="w-4 h-4" />
+      </Button>
+
+      <Button
+        size="sm"
+        variant={chartType === "line" ? "default" : "outline"}
+        onClick={() => setChartType("line")}
+        className="w-1/2 lg:w-auto rounded-xl"
+      >
+        <LineChart className="w-4 h-4" />
+      </Button>
+    </div>
+
+  </div>
+
+  {/* Filters Section */}
+  <div className="flex flex-col lg:flex-row lg:items-end gap-4 w-full">
+
+    {/* Range Type Select */}
+    <div className="w-full lg:w-40">
+      <Select
+        value={rangeType}
+        onValueChange={(value) =>
+          setRangeType(value as "month" | "year")
+        }
+      >
+        <SelectTrigger className="w-full rounded-xl">
+          <SelectValue placeholder="Select range type" />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value="month">Month</SelectItem>
+          <SelectItem value="year">Year</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Date Range Inputs */}
+    {rangeType === "month" && (
+      <>
+        <div className="w-full lg:w-auto">
+          <DatePicker
+            value={startDate}
+            onChange={setStartDate}
+            placeholder="Select start date"
+          />
         </div>
-  <div className="flex flex-col md:flex-row md:items-end gap-4 mb-5 w-full">
 
-  {/* Range Type Select */}
-  <div className="w-full md:w-40">
-   <Select
-  value={rangeType}
-  onValueChange={(value) =>
-    setRangeType(value as "month" | "year")
-  }
->
-  <SelectTrigger className="w-full rounded-xl">
-    <SelectValue placeholder="Select range type" />
-  </SelectTrigger>
+        <div className="w-full lg:w-auto">
+          <DatePicker
+            value={endDate}
+            onChange={setEndDate}
+            placeholder="Select end date"
+          />
+        </div>
+      </>
+    )}
 
-  <SelectContent>
-    <SelectItem value="month">Month</SelectItem>
-    <SelectItem value="year">Year</SelectItem>
-  </SelectContent>
-</Select>
+    {/* Load Button */}
+    <div className="w-full lg:w-auto">
+      <Button
+        type="button"
+        onClick={fetchAnalytics}
+        className="w-full lg:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white"
+      >
+        Load Analytics
+      </Button>
+    </div>
 
   </div>
 
-  {/* Date Range Inputs */}
-  {rangeType === "month" && (
-    <>
-      <div className="w-full md:w-auto">
-       <DatePicker
-  value={startDate}
-  onChange={setStartDate}
-  placeholder="Select start date"
-/>
-</div>
+</CardHeader>
 
-<div className="w-full md:w-auto">
-  <DatePicker
-  value={endDate}
-  onChange={setEndDate}
-  placeholder="Select end date"
-/>
-</div>
-</>
-)}
-
-  {/* Load Button */}
-<div className="w-full md:w-auto">
-  <Button
-      type="button"
-      onClick={fetchAnalytics}
-      className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
-    >
-      Load Analytics
-    </Button>
-  </div>
-</div>
-<CardDescription>
-  usage trends for your credit consumption
-</CardDescription>
-</div>
-
-<div className="flex gap-2">
-  <Button
-          size="sm"
-          variant={chartType === "bar" ? "default" : "outline"}
-          onClick={() => setChartType("bar")}
-          className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
-        >
-          <BarChart className="w-4 h-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant={chartType === "line" ? "default" : "outline"}
-          onClick={() => setChartType("line")}
-          className="w-full md:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white px-4 shadow-md border-blue-400"
-        >
-          <LineChart className="w-4 h-4" />
-        </Button>
-      </div>
-    </CardHeader>
 
     <CardContent>
       <ReactECharts
@@ -715,6 +767,7 @@ const handleCleanSubmit = () => {
       />
     </CardContent>
   </Card>
+  </div>
 )}
 
 </div>
