@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
@@ -108,41 +109,53 @@ export const FileDialogs = ({
               </div>
 
               <ScrollArea className="flex-1 p-4">
-                <div className="space-y-2">
-                  {availableFiles
-                    .filter((file) => !selectedFiles.includes(file.id))
-                    .map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all group"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <span className="text-lg">{file.icon}</span>
-                          <span className="text-sm text-slate-700 font-medium truncate">
-                            {file.name}
-                          </span>
+                {availableFiles.filter(
+                  (file) => !selectedFiles.includes(file.id),
+                ).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                    <Database className="w-12 h-12 text-slate-300 mb-2" />
+                    <p className="text-sm text-slate-500">No files available</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Upload files to get started
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {availableFiles
+                      .filter((file) => !selectedFiles.includes(file.id))
+                      .map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 hover:border-slate-300 transition-all group"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <span className="text-lg">{file.icon}</span>
+                            <span className="text-sm text-slate-700 font-medium truncate">
+                              {file.name}
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => toggleFileSelection(file.id)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDeleteFile(file.id)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            onClick={() => toggleFileSelection(file.id)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteFile(file.id)}
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                      ))}
+                  </div>
+                )}
               </ScrollArea>
 
               <div className="p-4 border-t">
@@ -199,9 +212,7 @@ export const FileDialogs = ({
                 ) : (
                   <div className="space-y-2">
                     {selectedFiles.map((fileId) => {
-                      const file = availableFiles.find(
-                        (f) => f.id === fileId,
-                      );
+                      const file = availableFiles.find((f) => f.id === fileId);
                       return (
                         <div
                           key={fileId}
@@ -231,10 +242,7 @@ export const FileDialogs = ({
           </div>
 
           <div className="p-6 border-t flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowFileDialog(false)}
-            >
+            <Button variant="outline" onClick={() => setShowFileDialog(false)}>
               Cancel
             </Button>
             <Button
@@ -273,7 +281,9 @@ export const FileDialogs = ({
                     <h4 className="text-lg font-semibold text-green-700 mb-2">
                       Upload Successful!
                     </h4>
-                    <p className="text-green-600 mb-4">{recentlyUploadedFile}</p>
+                    <p className="text-green-600 mb-4">
+                      {recentlyUploadedFile}
+                    </p>
                     <div className="text-4xl font-bold text-green-600 animate-pulse">
                       {countdown}
                     </div>

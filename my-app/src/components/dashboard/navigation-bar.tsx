@@ -38,8 +38,8 @@ export const NavigationBar = ({
                         />
                       </div>
         <div>
-          <h1 className="font-bold text-slate-800">AI Dashboard Generator</h1>
-          <p className="text-sm text-slate-500">Powered by AI</p>
+          <h1 className="font-bold text-slate-800">ADRO</h1>
+          <p className="text-sm text-slate-500">Your AI Data Analyst</p>
         </div>
       </div>
 

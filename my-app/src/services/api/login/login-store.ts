@@ -57,7 +57,6 @@ export const useLoginStore = create<LoginState>((set, get) => ({
 
       const data = await response.json().catch(() => null);
       
-      
       if (!response.ok) {
         const message =
           data?.detail ||
@@ -84,9 +83,14 @@ export const useLoginStore = create<LoginState>((set, get) => ({
         name: data.name,
       });
 
-      // ✅ ADD THIS - Initialize chat store after successful login
+      // ✅ Initialize chat store after successful login
       setTimeout(() => {
         useChatStore.getState().initializeOnLogin();
+        
+        // ✅ Clear file state in chat store
+        useChatStore.getState().setUploadedFiles([]);
+        useChatStore.getState().setAvailableFiles([]);
+        useChatStore.getState().setSelectedFiles([]);
       }, 100);
 
       return data;

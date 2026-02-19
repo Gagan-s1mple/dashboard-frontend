@@ -55,7 +55,13 @@ export const loadExistingFiles = async (): Promise<UploadedFile[]> => {
   try {
     const existingFiles = await fetchDataSources();
 
-    if (!Array.isArray(existingFiles)) {
+    // If API returns empty array or null, return empty array
+    if (!existingFiles || !Array.isArray(existingFiles)) {
+      return [];
+    }
+
+    // If array is empty, return empty array immediately
+    if (existingFiles.length === 0) {
       return [];
     }
 
@@ -83,8 +89,9 @@ export const loadExistingFiles = async (): Promise<UploadedFile[]> => {
 
     return formattedFiles;
   } catch (error: any) {
-  throw error
-    return [];
+    // Log error but return empty array - don't throw
+    console.error("Error loading files:", error);
+    return []; // Always return empty array on error
   }
 };
 
@@ -111,7 +118,7 @@ export const useFileOperations = () => {
         uploadedAt: new Date(),
       }));
     } catch (error) {
-
+      console.error("Upload error:", error);
       throw error;
     }
   };
@@ -121,7 +128,7 @@ export const useFileOperations = () => {
       await deleteFile(filename);
       return true;
     } catch (error) {
-
+      console.error("Delete error:", error);
       throw error;
     }
   };

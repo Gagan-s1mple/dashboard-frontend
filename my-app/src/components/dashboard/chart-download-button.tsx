@@ -65,7 +65,6 @@ export const ChartDownloadButton = ({ chartOption, chartTitle }: ChartDownloadBu
     } catch (error) {
      
       throw error
-      toast.error("Failed to download chart");
     }
 
     setShowMenu(false);

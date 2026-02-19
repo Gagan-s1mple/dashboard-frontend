@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { url } from "../api-url";
 
 // Helper function to get auth token
@@ -9,7 +8,7 @@ const getAuthToken = (): string | null => {
 export async function fetchDataSources() {
   try {
     const token = getAuthToken();
-    
+
     // Check if user is authenticated
     if (!token) {
       console.warn("No authentication token found. User may need to login.");
@@ -18,9 +17,8 @@ export async function fetchDataSources() {
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     };
-
 
     const response = await fetch(`${url.backendUrl}/api/list-files`, {
       method: "GET",
@@ -34,31 +32,29 @@ export async function fetchDataSources() {
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_email");
         localStorage.removeItem("token_type");
-        throw new Error("Session expired. Please login again.");
+        return []; // Return empty array, don't throw
       }
-      
-      const errorText = await response.text();
- 
-      throw new Error(`Failed to fetch data sources: ${response.status} ${response.statusText}`);
+
+      // For any other error, return empty array
+      console.error(`Failed to fetch data sources: ${response.status}`);
+      return [];
     }
 
     const data = await response.json();
-   
-    
+
     // Handle different response structures
     if (data.files && Array.isArray(data.files)) {
-
-      return data.files; // This returns array of strings
+      return data.files;
     } else if (data.dataSources && Array.isArray(data.dataSources)) {
       return data.dataSources;
     } else if (Array.isArray(data)) {
-
       return data;
     }
 
+    // If response doesn't match expected format, return empty array
     return [];
   } catch (error) {
-
-    throw error;
+    console.error("Error in fetchDataSources:", error);
+    return []; // Always return empty array on error
   }
 }

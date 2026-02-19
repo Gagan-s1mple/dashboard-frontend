@@ -166,7 +166,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         minute: "2-digit",
       });
     } catch (error) {
-  
       return "Invalid time";
     }
   };
@@ -210,7 +209,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       }
 
       if (currentDashboardData) {
-        
       }
     } else {
       setMessages([]);
@@ -222,12 +220,32 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   }, [messages]);
 
   const loadInitialFiles = async () => {
-    const files = await loadExistingFiles();
-    setUploadedFiles(files);
-    setStoreUploadedFiles(files);
-    const dbFiles = convertToDatabaseFiles(files);
-    setAvailableFiles(dbFiles);
-    setStoreAvailableFiles(dbFiles);
+    try {
+      const files = await loadExistingFiles();
+
+      // Always update state, even if empty
+      setUploadedFiles(files);
+      setStoreUploadedFiles(files);
+
+      const dbFiles = convertToDatabaseFiles(files);
+      setAvailableFiles(dbFiles);
+      setStoreAvailableFiles(dbFiles);
+
+      // Clear selected files if no files available
+      if (files.length === 0) {
+        setSelectedFiles([]);
+        setStoreSelectedFiles([]);
+      }
+    } catch (error) {
+      // On error, set empty arrays
+      console.error("Error loading files:", error);
+      setUploadedFiles([]);
+      setStoreUploadedFiles([]);
+      setAvailableFiles([]);
+      setStoreAvailableFiles([]);
+      setSelectedFiles([]);
+      setStoreSelectedFiles([]);
+    }
   };
 
   // Handle dashboard data when it's received
@@ -292,7 +310,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       };
 
       recognitionRef.current.onerror = (event: any) => {
-     
         setIsListening(false);
 
         if (toastId) {
@@ -356,8 +373,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         const id = toast.info("Listening... Speak now.");
         setToastId(id);
       } catch (error) {
-
-
         if (toastId) {
           toast.dismiss(toastId);
         }
@@ -443,8 +458,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       const id = toast.success(`File "${filename}" deleted successfully!`);
       setToastId(id);
     } catch (error: any) {
-      
-
       if (toastId) {
         toast.dismiss(toastId);
       }
@@ -530,7 +543,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(queryText.trim(), cleanFileNames);
     } catch (error) {
-
       addAssistantMessage(
         "Failed to generate dashboard. Please try again.",
         null,
@@ -589,7 +601,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
     } catch (error) {
-     
       addAssistantMessage(
         "Failed to generate dashboard. Please try again.",
         null,
@@ -645,7 +656,6 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     try {
       await fetchDashboardData(lastQuery, cleanFileNames);
     } catch (error) {
-  
       addAssistantMessage("Retry failed. Please try again.", null);
       setPendingQuery(null);
       setIsLoading(false);
@@ -1061,14 +1071,12 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
             </div>
           </div>
 
-   
-          
           {/* WITH this div: */}
-          <div 
+          <div
             className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300"
-            style={{ 
-              left: isCollapsed ? '4rem' : '18rem',
-              right: '2rem'
+            style={{
+              left: isCollapsed ? "4rem" : "18rem",
+              right: "2rem",
             }}
           >
             <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto">
@@ -1088,10 +1096,15 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                 onToggleFileSelection={toggleFileSelection}
               />
             </div>
+            <div className="px-4 pb-2 text-xs text-gray-600 text-center font-bold border-white/30 pt-2">
+              Adro can make mistakes. Check important info.
+            </div>
           </div>
         </div>
       )}
-
+      <div className="px-4 pb-2 text-xs text-gray-400 font-bold text-center border-t border-white/30 pt-2">
+        Adro can make mistakes. Check important info.
+      </div>
       <FileDialogs
         showFileDialog={showFileDialog}
         setShowFileDialog={setShowFileDialog}
