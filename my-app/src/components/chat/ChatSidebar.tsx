@@ -294,7 +294,7 @@ export const ChatSidebar = () => {
                               }`}
                             />
                             <span
-                              className={`truncate ${
+                              className={`truncate w-40 ${
                                 chat?.chat_id === currentChatId
                                   ? "font-medium text-indigo-700"
                                   : "text-slate-700"

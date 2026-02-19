@@ -21,6 +21,15 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { cn } from "../../../lib/utils";
 
+import { Checkbox } from "../ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+
 export function SignupPage({
   className,
   ...props
@@ -35,9 +44,13 @@ export function SignupPage({
     phno: "",
     countrycode:"+91",
     occupation: "",
+    organization:"",
   });
 
   const [error, setError] = useState("");
+
+const [acceptedTerms, setAcceptedTerms] = useState(false);
+
 
   const handleInputChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -75,7 +88,7 @@ await signup(payload);
 return (
   <div
     className={cn(
-      "min-h-screen flex items-center justify-center bg-gradient-to-br from-whitw-100 via-blue-100 to-blue-50 object-fill",
+      "flex items-center justify-center bg-gradient-to-br from-white-100 via-blue-100 to-blue-50 object-fill ",
       className
     )}
     {...props}
@@ -137,7 +150,7 @@ return (
 
             <form className="space-y-5" onSubmit={handleSubmit}>
 
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <Label>Full Name</Label>
                 <Input
                   name="name"
@@ -150,7 +163,7 @@ return (
               </div>
 
              
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <Label>Email</Label>
                 <Input
                   name="email"
@@ -164,7 +177,7 @@ return (
               </div>
 
            
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <Label>Phone Number</Label>
                 <div className="flex items-center gap-2">
                   <Select
@@ -175,7 +188,7 @@ return (
                       } as any)
                     }
                   >
-                    <SelectTrigger className="h-12 bg-white/40 border-white/50">
+                    <SelectTrigger className="h-15 bg-white/40 border-white/50">
                       <SelectValue />
                     </SelectTrigger>
 
@@ -199,33 +212,100 @@ return (
               </div>
 
           
-              <div className="space-y-1">
-                <Label>Occupation</Label>
-                <Select
-                  value={formData.occupation}
-                  onValueChange={(value) =>
-                    handleInputChange({
-                      target: { name: "occupation", value },
-                    } as any)
-                  }
-                >
-                  <SelectTrigger className="h-12 bg-white/40 border-white/50">
-                    <SelectValue placeholder="Select Occupation" />
-                  </SelectTrigger>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-                  <SelectContent>
-                    <SelectItem value="Student">Student</SelectItem>
-                    <SelectItem value="Employee">Employee</SelectItem>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Founder">Founder</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+  
+  {/* Occupation */}
+  <div className="space-y-2">
+    <Label>Occupation</Label>
+    <Select
+      value={formData.occupation}
+      onValueChange={(value) =>
+        handleInputChange({
+          target: { name: "occupation", value },
+        } as any)
+      }
+    >
+      <SelectTrigger className="h-9.5 bg-white/40 border-white/50 w-full">
+
+        <SelectValue placeholder="Select Occupation" />
+      </SelectTrigger>
+
+      <SelectContent>
+        <SelectItem value="Student">Student</SelectItem>
+        <SelectItem value="Employee">Employee</SelectItem>
+        <SelectItem value="Manager">Manager</SelectItem>
+        <SelectItem value="Founder">Founder</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+  <div className="space-y-2">
+    <Label>Organization</Label>
+    <Input
+      name="organization"
+      placeholder="Enter your organization"
+      value={formData.organization}
+      onChange={handleInputChange}
+     
+  className="h-9 bg-white/40 border-white/50 w-full"
+
+      required
+    />
+  </div>
+
+</div>
+
+<div className="flex items-start gap-3 text-sm">
+  <Checkbox
+    id="terms"
+    checked={acceptedTerms}
+    onCheckedChange={(value) => setAcceptedTerms(Boolean(value))}
+    className="mt-1 border-blue-500 border-2 "
+  />
+
+  <Label htmlFor="terms" className="leading-relaxed">
+    I agree to the{" "}
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="text-blue-700 underline hover:text-blue-900"
+        >
+          Terms & Conditions
+        </button>
+      </DialogTrigger>
+
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Terms & Conditions</DialogTitle>
+        </DialogHeader>
+
+        <div className="h-56 overflow-y-auto text-sm text-gray-700 space-y-3">
+          <p>
+            By creating an account, you agree to comply with our
+            platform policies and community guidelines.
+          </p>
+
+          <p>
+            Your personal information will be processed securely
+            according to our privacy standards.
+          </p>
+
+          <p>
+            Any misuse of services may result in account suspension
+            or termination.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </Label>
+</div>
+
 
               
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !acceptedTerms}
                 className="w-full h-12 rounded-lg text-white
                 bg-gradient-to-t from-blue-600 via-blue-500 to-blue-400
                 shadow-md hover:shadow-lg transition-all duration-200"

@@ -7,6 +7,7 @@ interface SignupPayload {
   email: string;
   phno: string;
   occupation: string;
+  organization: string;
 }
 
 interface SignupState {

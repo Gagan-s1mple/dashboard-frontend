@@ -497,10 +497,10 @@ const handleCleanSubmit = () => {
 
           
 {/* {credits card} */}
-<div className="w-full lg:max-w-3xl lg:mx-8 mr-14
+<div className="w-full lg:max-w-3xl lg:mx-8 
 ">
 
-  <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden mr-20">
+  <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden ">
     <CardContent className="pt-5 pb-8 px-4 md:px-8">
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start">
 
@@ -622,7 +622,7 @@ const handleCleanSubmit = () => {
         </div>
         <div className="space-y-6">
 
-         <div>
+<div>
   <p className="text-sm font-semibold text-slate-800 mb-4">
     Recent Activity
   </p>
