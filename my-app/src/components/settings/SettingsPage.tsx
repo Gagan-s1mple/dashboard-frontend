@@ -28,44 +28,33 @@ import {
   SelectValue,
 } from "../ui/select"
 import Image from "next/image";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+
 
 export function SettingsPage() {
-
 const [userEmail, setUserEmail] = useState<string>("");
 const [userName, setUserName] = useState<string>("");
-const [credits, setCredits] = useState(1);
+const [credits, setCredits] = useState("");
 const [availableCredits, setAvailableCredits] = useState<number|null>(null);
 const[loadingCredits, setLoadingCredits] = useState(true);
 const [loading, setLoading] = useState(false);
-
-
 const [showAnalytics, setShowAnalytics] = useState(false);
 const [chartType, setChartType] = useState<"bar" | "line">("bar");
-const [analyticsData, setAnalyticsData] = useState<
-  { date: string; usage: number }[]
->([]);
+const [analyticsData, setAnalyticsData] = useState<{ date: string; usage: number }[]>([]);
 const [analyticsLoading, setAnalyticsLoading] = useState(false);
 const [rangeType, setRangeType] = useState<"month" | "year">("month");
 const [startDate, setStartDate] = useState("");
 const [endDate, setEndDate] = useState("");
-
 const [recentActivity, setRecentActivity] = useState<
   { date: string; amount: number }[]
 >([]);
 const [currency, setCurrency] = useState<string | null>(null);
 const USD_TO_INR = 91.0;
-
-
-const [selectedFile] = useState("sales_data_2026.csv");
-
 const [cleanOptions, setCleanOptions] = useState({
   keepNulls: false,
   removeDuplicates: false,
   normalizeColumns: false,
   trimWhitespace: false,
 });
-
 
 const router = useRouter();
 
@@ -75,29 +64,37 @@ const handleLogout = () => {
   localStorage.removeItem("token_type");
   router.push("/");
 };
-
-  useEffect(() => {
-    // Get user email from localStorage
+// USE EFFECTS
+useEffect(() => {
     const email = localStorage.getItem("user_email") || "Not logged in";
     setUserEmail(email);
     const name = localStorage.getItem("user_name") || "User";
     setUserName(name);
-    
-    // TODO: Fetch token info from backend when available
-    // For now, using hardcoded values
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem("currency");
     if (stored) {
       setCurrency(stored);
     }
-    console.log("Currency from LS:", stored);
+    //console.log("Currency from LS:", stored);
 
   }
 }, []);
 
+useEffect(() => {
+  if (rangeType === "month" && startDate && endDate) {
+    fetchAnalytics();
+  }
+}, [startDate, endDate, rangeType]);
+
+// fetch available credits
+useEffect(() => {
+  fetchCredits();
+}, []);
+
+// functions 
 //price calculation
 const calculatePrice = (credits: number) => {
   if (currency === "INR") {
@@ -105,11 +102,9 @@ const calculatePrice = (credits: number) => {
   }
   return credits;
 };
-
-const price = calculatePrice(credits);   
-
+const price = calculatePrice(Number(credits));   
 const purchaseCredits = async () => {
-  if (credits < 1) return;
+  if (Number(credits) < 1) return;
 
   setLoading(true);
 
@@ -130,7 +125,6 @@ const purchaseCredits = async () => {
         }),
       }
     );
-console.log(url);
     const order = await orderResponse.json();
 
 //razorpay api key
@@ -163,19 +157,14 @@ console.log(url);
 if (result.status === "success") {
   await fetchCredits();
 }
-
-
         setLoading(false);
       },
-
       theme: {
         color: "#4f46e5",
       },
     };
-
     const paymentObject = new (window as any).Razorpay(options);
     paymentObject.open();
-
     paymentObject.on("payment.failed", function () {
       setLoading(false);
     });
@@ -185,12 +174,11 @@ if (result.status === "success") {
     setLoading(false);
   }
 };
-
   const handleBack = () => {
     router.back();
   };
 
-
+//credits fetch api
 const fetchCredits = async () => {
     try {
       const response = await fetch(
@@ -217,11 +205,8 @@ const fetchCredits = async () => {
       setLoadingCredits(false);
     }
   };
-console.log("availableCredits:", availableCredits);
-  // fetch available credits
-useEffect(() => {
-  fetchCredits();
-}, []);
+//console.log("availableCredits:", availableCredits);
+
 
 // analytics api 
 const fetchAnalytics = async () => {
@@ -229,19 +214,16 @@ const fetchAnalytics = async () => {
     alert("Please select start and end date");
     return;
   }
-
   setAnalyticsLoading(true);
 
   try {
     let query = "";
-
     if (rangeType === "year") {
       const currentYear = new Date().getFullYear();
       query = `?year=${currentYear}`;
     } else {
       query = `?start_date=${startDate}&end_date=${endDate}`;
     }
-
     const response = await fetch(
       `${url.backendUrl}/api/credits-usage${query}`,
       { method: "GET",
@@ -250,19 +232,19 @@ const fetchAnalytics = async () => {
          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
       }, }
     );
-
     if (!response.ok) {
       throw new Error("Failed to fetch analytics")
     }
 const data = await response.json();
-
 const formattedData = Object.entries(data.daily_usage).map(
   ([date, usage]) => ({
     date,
     usage: Number(usage),
   })
 );
-//fetxh analytics data
+
+
+//fetch analytics data
 setAnalyticsData(formattedData);
 
   } catch (error) {
@@ -270,8 +252,6 @@ setAnalyticsData(formattedData);
   } finally {
     setAnalyticsLoading(false);
   }
-  console.log("fetchanalytics: button clicked");
-  console.log("FETCH FUNCTION TRIGGERED");
 };
 
 // chart options
@@ -324,7 +304,7 @@ const fetchTransactionHistory = async () => {
     console.error("Transaction history error:", error);
   }
 };
-console.log("recentActivity:", recentActivity);
+//console.log("recentActivity:", recentActivity);
 
 useEffect(() => {
   fetchTransactionHistory();
@@ -339,7 +319,7 @@ const handleCheckboxChange = (key: string) => {
 };
 
 const handleCleanSubmit = () => {
-  console.log("Selected cleaning options:", cleanOptions);
+  //console.log("Selected cleaning options:", cleanOptions);
 };
 
   return (
@@ -349,7 +329,7 @@ const handleCleanSubmit = () => {
       <div className="w-full">
         {/* Header */}
 <div className="flex items-center justify-between mb-6">
-  <div className="flex items-center gap-3">
+  <div className="flex items-center gap-3 mb-10">
   {/* Left Side */}
     <div className="w-auto h-auto rounded-full overflow-hidden shadow-lg">
       <Image
@@ -366,37 +346,33 @@ const handleCleanSubmit = () => {
     Settings
   </h1>
 </div>
-<div className="flex items-center gap-4">
-        {userEmail && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-600" />
-                <span className="text-sm font-medium text-slate-800">
-                  {userEmail.split("@")[0]}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={handleBack} className="cursor-pointer">
-               
-    <ArrowLeft className="w-4 h-4 mr-2" />
-    Back to Dashboard
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+<div className="flex flex-col gap-3">
+  {userEmail && (
+    <>
+      <Button
+        variant="outline"
+        onClick={handleBack}
+        className="flex items-center gap-2 justify-start"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Go to Dashboard
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={handleLogout}
+        className="flex items-center gap-2 justify-start text-red-600 border-red-200 hover:bg-red-50"
+      >
+        <LogOut className="w-4 h-4" />
+        Logout
+      </Button>
+    </>
+  )}
 </div>
 
+
 </div>
-
-        {/* Settings Cards */}
-       <div className="w-full flex flex-row md:flex-row px-0 flex-wrap">
-
+     <div className="w-full flex flex-row md:flex-row px-0 flex-wrap">
           {/* User Profile Card */}
           <div className="w-full md:w-[400px]">
           <Card className="shadow-sm">
@@ -422,83 +398,80 @@ const handleCleanSubmit = () => {
             </CardContent>
           </Card>
           {/* Data Cleaning Card */}
-<div className="w-full mt-6">
-  <Card className="shadow-sm rounded-2xl">
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        🧹 Data Cleaning
-      </CardTitle>
-      <CardDescription>
-        Prepare your dataset before running analytics
-      </CardDescription>
-    </CardHeader>
+  <div className="w-full mt-6">
+    <Card className="shadow-sm rounded-2xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          🧹 Data Cleaning
+        </CardTitle>
+        <CardDescription>
+          Prepare your dataset before running analytics
+        </CardDescription>
+      </CardHeader>
 
-    <CardContent className="space-y-6">
+      <CardContent className="space-y-6">
+        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+          <p className="text-sm text-slate-500">Choose  File to upload</p>
+        </div>
 
-      {/* Current File */}
-      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-        <p className="text-sm text-slate-500">Choose  File to upload</p>
-  
-      </div>
+        {/* Cleaning Options */}
+        <div className="space-y-4 text-sm">
 
-      {/* Cleaning Options */}
-      <div className="space-y-4 text-sm">
+          <label className="flex items-center justify-between">
+            <span>Keep null values</span>
+            <input
+              type="checkbox"
+              checked={cleanOptions.keepNulls}
+              // onChange={() => handleCheckboxChange("keepNulls")}
+            />
+          </label>
 
-        <label className="flex items-center justify-between">
-          <span>Keep null values</span>
-          <input
-            type="checkbox"
-            checked={cleanOptions.keepNulls}
-            // onChange={() => handleCheckboxChange("keepNulls")}
-          />
-        </label>
+          <label className="flex items-center justify-between">
+            <span>Remove duplicate rows</span>
+            <input
+              type="checkbox"
+              checked={cleanOptions.removeDuplicates}
+              // onChange={() => handleCheckboxChange("removeDuplicates")}
+            />
+          </label>
 
-        <label className="flex items-center justify-between">
-          <span>Remove duplicate rows</span>
-          <input
-            type="checkbox"
-            checked={cleanOptions.removeDuplicates}
-            // onChange={() => handleCheckboxChange("removeDuplicates")}
-          />
-        </label>
+          <label className="flex items-center justify-between">
+            <span>Normalize column names</span>
+            <input
+              type="checkbox"
+              checked={cleanOptions.normalizeColumns}
+              // onChange={() => handleCheckboxChange("normalizeColumns")}
+            />
+          </label>
 
-        <label className="flex items-center justify-between">
-          <span>Normalize column names</span>
-          <input
-            type="checkbox"
-            checked={cleanOptions.normalizeColumns}
-            // onChange={() => handleCheckboxChange("normalizeColumns")}
-          />
-        </label>
+          <label className="flex items-center justify-between">
+            <span>Trim whitespace from cells</span>
+            <input
+              type="checkbox"
+              checked={cleanOptions.trimWhitespace}
+              // onChange={() => handleCheckboxChange("trimWhitespace")}
+            />
+          </label>
 
-        <label className="flex items-center justify-between">
-          <span>Trim whitespace from cells</span>
-          <input
-            type="checkbox"
-            checked={cleanOptions.trimWhitespace}
-            // onChange={() => handleCheckboxChange("trimWhitespace")}
-          />
-        </label>
+        </div>
 
-      </div>
+        {/* Submit Button */}
+        <Button
+          onClick={handleCleanSubmit}
+          className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
+        >
+          feature coming soon.......
+        </Button>
 
-      {/* Submit Button */}
-      <Button
-        onClick={handleCleanSubmit}
-        className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl"
-      >
-        feature coming soon.......
-      </Button>
+      </CardContent>
+    </Card>
+  </div>
 
-    </CardContent>
-  </Card>
 </div>
- </div>
 
           
 {/* {credits card} */}
-<div className="w-full lg:max-w-3xl lg:mx-8 
-">
+<div className="w-full lg:max-w-3xl lg:mx-8">
 
   <Card className="rounded-3xl border border-slate-200 shadow-xl  overflow-hidden ">
     <CardContent className="pt-5 pb-8 px-4 md:px-8">
@@ -573,26 +546,20 @@ const handleCleanSubmit = () => {
   {/* Credits Selector */}
   <div className="flex items-center justify-center">
     <Input
-      type="number"
-      min="1"
-      value={credits}
-      onChange={(e) => setCredits(Number(e.target.value))}
-      className="
+  type="number"
+  value={credits}
+  onChange={(e) => setCredits(e.target.value)}
+  className="
         text-center
-        border border-slate-200
+        border border-blue-600
         bg-slate-50
         text-xl font-bold
         h-12 w-24
         rounded-xl
         shadow-sm
-        focus-visible:ring-2
-        focus-visible:ring-blue-400
-        focus-visible:border-blue-400
-        transition-all duration-200
-        appearance-none
-      "
-    />
-  </div>
+       "
+/>
+</div>
 
   {/* Purchase Section */}
   <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
@@ -649,26 +616,17 @@ const handleCleanSubmit = () => {
       </div>
     ))}
   </div>
-</div>
-
-
-       
+</div>      
 </div>
 </div>
 </CardContent>
 </Card>
-
+{/* analytics section */}
   {showAnalytics && (
-      <div className="w-full md:w-[400px] lg:w-full">
+<div className="w-full md:w-[400px] lg:w-full">
 <Card className="mt-5 rounded-3xl border border-slate-200 shadow-lg overflow-hidden self-start">
-
-
 <CardHeader className="space-y-6">
-
-  {/* Top Section */}
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-
-    {/* Left Side - Title + Description */}
     <div>
       <CardTitle className="text-lg font-semibold">
         Usage Analytics
@@ -698,11 +656,9 @@ const handleCleanSubmit = () => {
         <LineChart className="w-4 h-4" />
       </Button>
     </div>
-
   </div>
 
-  {/* Filters Section */}
-  <div className="flex flex-col lg:flex-row lg:items-end gap-4 w-full">
+<div className="flex flex-col lg:flex-row lg:items-end gap-4 w-full">
 
     {/* Range Type Select */}
     <div className="w-full lg:w-40">
@@ -742,24 +698,9 @@ const handleCleanSubmit = () => {
           />
         </div>
       </>
-    )}
-
-    {/* Load Button */}
-    <div className="w-full lg:w-auto">
-      <Button
-        type="button"
-        onClick={fetchAnalytics}
-        className="w-full lg:w-auto rounded-xl bg-blue-400 hover:bg-blue-600 text-white"
-      >
-        Load Analytics
-      </Button>
-    </div>
-
+    )}  
   </div>
-
 </CardHeader>
-
-
     <CardContent>
       <ReactECharts
         option={getChartOption()}
@@ -769,7 +710,6 @@ const handleCleanSubmit = () => {
   </Card>
   </div>
 )}
-
 </div>
         </div>
       </div>
