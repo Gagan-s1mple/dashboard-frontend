@@ -692,15 +692,11 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   };
 
   const toggleFileSelection = (fileName: string) => {
+    // Compute the new selection without side effects in the state updater
     setSelectedFiles((prev) => {
-      const newSelection = prev.includes(fileName)
+      return prev.includes(fileName)
         ? prev.filter((f) => f !== fileName)
         : [...prev, fileName];
-
-      // Update store
-      setStoreSelectedFiles(newSelection);
-
-      return newSelection;
     });
   };
 
@@ -1016,61 +1012,142 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                       </>
                     ) : (
                       <div className="space-y-2">
-                        <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
-                          {/* Use ReactMarkdown for content with bold formatting - FIXED VERSION */}
-                          <ReactMarkdown
-                            components={{
-                              p: ({ children }) => (
-                                <p className="mb-2 last:mb-0 text-md">
-                                  {children}
-                                </p>
-                              ),
-                              strong: ({ children }) => (
-                                <strong className="font-bold text-gray-900">
-                                  {children}
-                                </strong>
-                              ),
-                            }}
-                          >
-                            {message.content}
-                          </ReactMarkdown>
+                        {message.visualRendered && message.dashboardData ? (
+                          // Check if ONLY content exists (no KPIs, charts, or table)
+                          (() => {
+                            const data = message.dashboardData;
+                            const hasKPIs = data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0;
+                            const hasCharts = data.charts && Array.isArray(data.charts) && data.charts.length > 0;
+                            const hasTable = data.table && Array.isArray(data.table) && data.table.length > 0;
+                            const hasContent = data.content && typeof data.content === "string" && data.content.trim() !== "";
+                            
+                            const hasOnlyContent = hasContent && !hasKPIs && !hasCharts && !hasTable;
+                            
+                            if (hasOnlyContent) {
+                              // Render ONLY the content without the DashboardCard
+                              return (
+                                <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => (
+                                        <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                      ),
+                                      strong: ({ children }) => (
+                                        <strong className="font-bold text-gray-900">
+                                          {children}
+                                        </strong>
+                                      ),
+                                    }}
+                                  >
+                                    {data.content}
+                                  </ReactMarkdown>
+                                </div>
+                              );
+                            } else {
+                              // For dashboard data with KPIs/charts/table, show content ABOVE the card
+                              return (
+                                <>
+                                  {/* Show content in message bubble if it exists */}
+                                  {hasContent && (
+                                    <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm mb-4">
+                                      <ReactMarkdown
+                                        components={{
+                                          p: ({ children }) => (
+                                            <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                          ),
+                                          strong: ({ children }) => (
+                                            <strong className="font-bold text-gray-900">
+                                              {children}
+                                            </strong>
+                                          ),
+                                        }}
+                                      >
+                                        {data.content}
+                                      </ReactMarkdown>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Show DashboardCard below the content */}
+                                  <div className="w-full">
+                                    <DashboardCard
+                                      dashboardData={message.dashboardData}
+                                      timestamp={message.timestamp}
+                                      showLoader={false}
+                                    />
+                                  </div>
 
-                          {message.visualRendered &&
-                            message.dashboardData &&
-                            hasValidData(message.dashboardData) && (
-                              <div className="mt-4 w-full">
-                                <DashboardCard
-                                  dashboardData={message.dashboardData}
-                                  timestamp={message.timestamp}
-                                  showLoader={false}
-                                />
-                              </div>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-3 px-2">
-                          <div className="flex items-center gap-1">
-                            {/* <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                            <span className="text-xs text-slate-500">
-                              {formatTimeString(message.timestamp)}
-                            </span> */}
-                          </div>
-                          {/* <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 hover:bg-gray-200"
-                            onClick={() =>
-                              copyToClipboard(message.content, message.id)
+                                  <div className="flex items-center gap-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                      {/* <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                      <span className="text-xs text-slate-500">
+                                        {formatTimeString(message.timestamp)}
+                                      </span> */}
+                                    </div>
+                                    {/* <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 hover:bg-gray-200"
+                                      onClick={() =>
+                                        copyToClipboard(message.content, message.id)
+                                      }
+                                      title="Copy message"
+                                    >
+                                      {copiedMessageId === message.id ? (
+                                        <Check className="h-3 w-3 text-green-600" />
+                                      ) : (
+                                        <Copy className="h-3 w-3 text-gray-500" />
+                                      )}
+                                    </Button> */}
+                                  </div>
+                                </>
+                              );
                             }
-                            title="Copy message"
-                          >
-                            {copiedMessageId === message.id ? (
-                              <Check className="h-3 w-3 text-green-600" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-gray-500" />
-                            )}
-                          </Button> */}
-                        </div>
+                          })()
+                        ) : (
+                          // Just render the message content without any dashboard data
+                          <>
+                            <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({ children }) => (
+                                    <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                  ),
+                                  strong: ({ children }) => (
+                                    <strong className="font-bold text-gray-900">
+                                      {children}
+                                    </strong>
+                                  ),
+                                }}
+                              >
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+
+                            <div className="flex items-center gap-3 px-2">
+                              <div className="flex items-center gap-1">
+                                {/* <Clock className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                                <span className="text-xs text-slate-500">
+                                  {formatTimeString(message.timestamp)}
+                                </span> */}
+                              </div>
+                              {/* <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 hover:bg-gray-200"
+                                onClick={() =>
+                                  copyToClipboard(message.content, message.id)
+                                }
+                                title="Copy message"
+                              >
+                                {copiedMessageId === message.id ? (
+                                  <Check className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <Copy className="h-3 w-3 text-gray-500" />
+                                )}
+                              </Button> */}
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

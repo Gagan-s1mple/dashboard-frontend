@@ -25,10 +25,7 @@ export const NavigationBar = ({
   return (
     <div className="border-b bg-white p-4 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full overflow-hidden
-                      bg-white/40 backdrop-blur-md
-                      border border-white/50
-                      flex items-center justify-center mb-3 shadow-md">
+        <div className="w-12 h-12 rounded-full overflow-hidden bg-white/40 backdrop-blur-md border border-white/50 flex items-center justify-center mb-3 shadow-md">
                         <Image
                           src="/logo.png"
                           alt="Logo"

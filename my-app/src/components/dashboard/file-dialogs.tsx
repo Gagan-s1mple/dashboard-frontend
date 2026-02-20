@@ -79,13 +79,16 @@ export const FileDialogs = ({
     <>
       {/* File Selection Dialog */}
       <Dialog open={showFileDialog} onOpenChange={setShowFileDialog}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0" aria-describedby="file-selection-description">
           <DialogHeader className="p-6 border-b">
             <div className="flex items-center gap-3">
               <Database className="w-6 h-6 text-slate-600" />
               <DialogTitle className="text-lg font-semibold text-slate-800">
                 Select Data Sources
               </DialogTitle>
+            </div>
+            <div id="file-selection-description" className="sr-only">
+              Select one or more CSV files from your database to analyze
             </div>
           </DialogHeader>
 
@@ -257,11 +260,14 @@ export const FileDialogs = ({
 
       {/* Upload Modal */}
       <Dialog open={showFileUploadModal} onOpenChange={setShowFileUploadModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" aria-describedby="upload-description">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-slate-800">
               Upload New File
             </DialogTitle>
+            <div id="upload-description" className="sr-only">
+              Upload a new CSV file to your database
+            </div>
           </DialogHeader>
 
           {uploadSuccess && recentlyUploadedFile ? (

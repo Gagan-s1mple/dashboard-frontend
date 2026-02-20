@@ -170,7 +170,9 @@ export const DashboardCard = ({
   const exportToExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
+      let hasData = false;
 
+      // Export KPIs if available
       if (dashboardData.kpis && dashboardData.kpis.length > 0) {
         const kpiData = dashboardData.kpis.map((kpi: any) => ({
           Metric: kpi.title,
@@ -179,8 +181,10 @@ export const DashboardCard = ({
         }));
         const kpiWs = XLSX.utils.json_to_sheet(kpiData);
         XLSX.utils.book_append_sheet(wb, kpiWs, "KPIs");
+        hasData = true;
       }
 
+      // Export Chart Data if available
       if (dashboardData.charts && dashboardData.charts.length > 0) {
         const chartData: any[] = [];
         dashboardData.charts.forEach((chart: any, idx: number) => {
@@ -205,13 +209,54 @@ export const DashboardCard = ({
         if (chartData.length > 0) {
           const chartWs = XLSX.utils.json_to_sheet(chartData);
           XLSX.utils.book_append_sheet(wb, chartWs, "Chart Data");
+          hasData = true;
         }
       }
 
-      XLSX.writeFile(wb, `dashboard-${Date.now()}.xlsx`);
+      // Export Table Data if available
+      if (dashboardData.table && 
+          Array.isArray(dashboardData.table) && 
+          dashboardData.table.length > 0) {
+        
+        // Format table data for Excel
+        const tableData = dashboardData.table.map((row: any) => {
+          const formattedRow: any = {};
+          Object.keys(row).forEach(key => {
+            formattedRow[key] = row[key];
+          });
+          return formattedRow;
+        });
+        
+        const tableWs = XLSX.utils.json_to_sheet(tableData);
+        XLSX.utils.book_append_sheet(wb, tableWs, "Data Table");
+        hasData = true;
+      }
+
+      // Export Content if available (as text)
+      if (dashboardData.content && 
+          typeof dashboardData.content === "string" && 
+          dashboardData.content.trim() !== "") {
+        
+        // Create a simple sheet with the content
+        const contentData = [{ Content: dashboardData.content }];
+        const contentWs = XLSX.utils.json_to_sheet(contentData);
+        XLSX.utils.book_append_sheet(wb, contentWs, "Analysis");
+        hasData = true;
+      }
+
+      // Check if we have any data to export
+      if (!hasData) {
+        toast.error("No data available to export");
+        return;
+      }
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      XLSX.writeFile(wb, `dashboard-${timestamp}.xlsx`);
       toast.success("Excel file downloaded successfully!");
     } catch (error) {
-      toast.error("Failed to export as Excel");
+      console.error("Excel export error:", error);
+      toast.error("Failed to export as Excel. Please try again.");
     }
   };
 
@@ -263,6 +308,18 @@ export const DashboardCard = ({
               font-size: 12px;
               font-weight: 500;
             }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+            }
+            th, td {
+              border: 1px solid #e2e8f0;
+              padding: 8px 12px;
+              text-align: left;
+            }
+            th {
+              background-color: #f8fafc;
+            }
           </style>
         </head>
         <body>
@@ -288,70 +345,78 @@ export const DashboardCard = ({
     setShowDownloadMenu(false);
 
     try {
-      if (format === "png") {
+      if (format === "png" || format === "jpg" || format === "pdf" || format === "print") {
+        // For image-based exports, we need to ensure we're capturing the table properly
         const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
           backgroundColor: "#ffffff",
           pixelRatio: 2,
+          style: {
+            // Ensure tables are visible in the capture
+            overflow: 'visible',
+          }
         });
-        const image = canvas.toDataURL("image/png");
-        const blob = await (await fetch(image)).blob();
-        downloadFile(blob, `dashboard-${Date.now()}.png`);
-        toast.success("PNG downloaded successfully!");
-      } else if (format === "jpg") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/jpeg", 0.95);
-        const blob = await (await fetch(image)).blob();
-        downloadFile(blob, `dashboard-${Date.now()}.jpg`);
-        toast.success("JPG downloaded successfully!");
-      } else if (format === "pdf") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/png");
-        const pdf = new jsPDF({
-          orientation: "landscape",
-          unit: "px",
-          format: [canvas.width, canvas.height],
-        });
-        pdf.addImage(image, "PNG", 0, 0, canvas.width, canvas.height);
-        pdf.save(`dashboard-${Date.now()}.pdf`);
-        toast.success("PDF downloaded successfully!");
+        
+        if (format === "png") {
+          const image = canvas.toDataURL("image/png");
+          const blob = await (await fetch(image)).blob();
+          downloadFile(blob, `dashboard-${Date.now()}.png`);
+          toast.success("PNG downloaded successfully!");
+        } else if (format === "jpg") {
+          const image = canvas.toDataURL("image/jpeg", 0.95);
+          const blob = await (await fetch(image)).blob();
+          downloadFile(blob, `dashboard-${Date.now()}.jpg`);
+          toast.success("JPG downloaded successfully!");
+        } else if (format === "pdf") {
+          const image = canvas.toDataURL("image/png");
+          const pdf = new jsPDF({
+            orientation: "landscape",
+            unit: "px",
+            format: [canvas.width, canvas.height],
+          });
+          pdf.addImage(image, "PNG", 0, 0, canvas.width, canvas.height);
+          pdf.save(`dashboard-${Date.now()}.pdf`);
+          toast.success("PDF downloaded successfully!");
+        } else if (format === "print") {
+          const image = canvas.toDataURL("image/png");
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(`
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Dashboard Report</title>
+                <style>
+                  body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+                  img { width: 100%; height: auto; }
+                  @media print {
+                    body { margin: 0; }
+                    img { max-width: 100%; }
+                  }
+                </style>
+              </head>
+              <body>
+                <img src="${image}" />
+                <script>
+                  window.onload = () => { 
+                    setTimeout(() => { 
+                      window.print(); 
+                      setTimeout(() => window.close(), 500);
+                    }, 500); 
+                  }
+                </script>
+              </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
+        }
       } else if (format === "excel") {
         exportToExcel();
       } else if (format === "html") {
         await exportToHTML();
-      } else if (format === "print") {
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-        });
-        const image = canvas.toDataURL("image/png");
-        const printWindow = window.open("", "_blank");
-        if (printWindow) {
-          printWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>Dashboard Report</title>
-              <style>
-                body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-                img { width: 100%; height: auto; }
-              </style>
-            </head>
-            <body>
-              <img src="${image}" />
-              <script>window.onload = () => { setTimeout(() => { window.print(); window.close(); }, 500); }</script>
-            </body>
-            </html>
-          `);
-          printWindow.document.close();
-        }
       }
     } catch (error) {
+      console.error("Export error:", error);
       toast.error("Failed to export. Please try again.");
     } finally {
       setIsExporting(false);
@@ -405,10 +470,14 @@ export const DashboardCard = ({
             <div>
               {/* Conditionally render title based on what data is available */}
               <CardTitle className="text-xl font-bold text-slate-800">
-                {hasCharts || hasKPIs ? "AI-Generated Dashboard" : "Data Table"}
+                {hasCharts || hasKPIs ? "AI-Generated Dashboard" : 
+                 hasTable ? "Data Table" : 
+                 hasContent ? "Analysis" : "Data Table"}
               </CardTitle>
               <p className="text-sm text-slate-600">
-                {hasCharts || hasKPIs ? "Complete Overview" : "Tabular Data View"}
+                {hasCharts || hasKPIs ? "Complete Overview" : 
+                 hasTable ? "Tabular Data View" : 
+                 hasContent ? "Text Analysis" : "Data View"}
               </p>
             </div>
           </div>
@@ -603,44 +672,42 @@ export const DashboardCard = ({
             )}
 
             {/* Table section if available */}
-            {dashboardData.table &&
-              Array.isArray(dashboardData.table) &&
-              dashboardData.table.length > 0 && (
-                <div>
-                  <div className="overflow-x-auto border rounded-lg">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          {Object.keys(dashboardData.table[0]).map((key) => (
-                            <th
-                              key={key}
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              {key.replace(/_/g, " ")}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {dashboardData.table.map((row: any, idx: number) => (
-                          <tr key={idx}>
-                            {Object.values(row).map(
-                              (value: any, colIdx: number) => (
-                                <td
-                                  key={colIdx}
-                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                                >
-                                  {value}
-                                </td>
-                              ),
-                            )}
-                          </tr>
+            {hasTable && (
+              <div>
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {Object.keys(dashboardData.table[0]).map((key) => (
+                          <th
+                            key={key}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {key.replace(/_/g, " ")}
+                          </th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dashboardData.table.map((row: any, idx: number) => (
+                        <tr key={idx}>
+                          {Object.values(row).map(
+                            (value: any, colIdx: number) => (
+                              <td
+                                key={colIdx}
+                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                              >
+                                {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                              </td>
+                            ),
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
