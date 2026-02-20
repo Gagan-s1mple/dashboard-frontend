@@ -88,7 +88,7 @@ await signup(payload);
 return (
   <div
     className={cn(
-      "flex items-center justify-center bg-gradient-to-br from-white-100 via-blue-100 to-blue-50 object-fill ",
+      " min-h-screen flex items-center justify-center bg-gradient-to-br from-white-100 via-blue-100 to-blue-50 object-fill ",
       className
     )}
     {...props}
