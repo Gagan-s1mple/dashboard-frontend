@@ -23,6 +23,7 @@ interface FileDialogsProps {
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearSelection: () => void;
   onClose: () => void;
+  onOpenUploadModal?: () => void;
 }
 
 export const FileDialogs = ({
@@ -39,9 +40,18 @@ export const FileDialogs = ({
   uploading,
   fileInputRef,
   onClearSelection,
+  onOpenUploadModal,
 }: FileDialogsProps) => {
   const [countdown, setCountdown] = useState<number | null>(null);
   const countdownStartedRef = useRef(false);
+
+  const handleOpenUploadModal = () => {
+    onOpenUploadModal?.();
+    setCountdown(null);
+    countdownStartedRef.current = false;
+    setShowFileDialog(false);
+    setShowFileUploadModal(true);
+  };
 
   useEffect(() => {
     if (uploadSuccess && countdown === null && !countdownStartedRef.current) {
@@ -163,10 +173,7 @@ export const FileDialogs = ({
 
               <div className="p-4 border-t">
                 <Button
-                  onClick={() => {
-                    setShowFileDialog(false);
-                    setShowFileUploadModal(true);
-                  }}
+                  onClick={handleOpenUploadModal}
                   variant="ghost"
                   className="w-full flex items-center justify-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
                 >

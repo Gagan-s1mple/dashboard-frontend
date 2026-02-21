@@ -71,26 +71,31 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       }
 
       // ✅ Success case
+      const newEmail = data.email || payload.username;
+      const lastLoginEmail = localStorage.getItem("lastLoginEmail");
+      const isNewUser = lastLoginEmail && lastLoginEmail !== newEmail;
+
       localStorage.setItem("auth_token", data.access_token);
-      localStorage.setItem("user_email", data.email || payload.username);
+      localStorage.setItem("user_email", newEmail);
       localStorage.setItem("user_name", data.name);
       localStorage.setItem("currency", data.currency);
+      localStorage.setItem("lastLoginEmail", newEmail); // Track current user
 
       set({
         loading: false,
         token: data.access_token,
-        email: data.email || payload.username,
+        email: newEmail,
         name: data.name,
       });
 
       // ✅ Initialize chat store after successful login
       setTimeout(() => {
         useChatStore.getState().initializeOnLogin();
-        
-        // ✅ Clear file state in chat store
-        useChatStore.getState().setUploadedFiles([]);
-        useChatStore.getState().setAvailableFiles([]);
-        useChatStore.getState().setSelectedFiles([]);
+        // Clear selectedFiles only if a NEW user is logging in
+        if (isNewUser) {
+          useChatStore.getState().setSelectedFiles([]);
+        }
+        // Otherwise keep selected files for same user refreshing
       }, 100);
 
       return data;
@@ -106,6 +111,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_email");
       localStorage.removeItem("token_type");
+      localStorage.removeItem("lastLoginEmail"); // Clear tracking email
       
       // ✅ ADD THIS - Clean up chat store on logout
       useChatStore.getState().cleanupOnLogout();

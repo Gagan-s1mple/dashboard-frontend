@@ -371,7 +371,8 @@ interface DashboardState {
   ) => Promise<void>;
   stopPolling: () => void;
   resetDashboard: () => void;
-  pollTaskStatus: (taskId: string) => Promise<void>;
+  pollTaskStatus: (taskId: string, messageIdOverride?: string) => Promise<void>;
+  resumePollingIfNeeded: () => void;
   addToChatHistory: (
     query: string,
     files: string[],
@@ -461,18 +462,31 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       dashboardAPI.setMessageId(nextMessageId);
 
       // Step 2: Store task ID and start polling
+      const chatId = get().currentChatId;
+      const messageIdUsed = currentMessageId; // Before increment
       set({
         currentTaskId: task_id,
         polling: true,
         loading: false, // We're not loading anymore, we're polling
       });
 
-      // Step 3: Start polling for this task
-      get().pollTaskStatus(task_id);
+      // Persist for resume on refresh/navigation - use localStorage for cross-session persistence
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(
+          "adro_polling_task",
+          JSON.stringify({ taskId: task_id, chatId, messageId: messageIdUsed })
+        );
+      }
+
+      // Refresh sidebar so new chat appears
+      useChatStore.getState().fetchChatTitles();
+
+      // Step 3: Start polling for this task (pass messageId used for task creation)
+      get().pollTaskStatus(task_id, messageIdUsed);
     } catch (error) {
-
-
-
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("adro_polling_task");
+      }
       set({
         dashboardData: INITIAL_DASHBOARD_DATA,
         hasData: false,
@@ -480,13 +494,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         polling: false,
         currentTaskId: null,
       });
-
-
     }
   },
 
-  pollTaskStatus: async (taskId: string) => {
-    // STORE THE ORIGINAL MESSAGE-ID WHEN POLLING STARTS
+  pollTaskStatus: async (taskId: string, messageIdOverride?: string) => {
+    // Use the message ID from when the task was created (for correct backend lookup)
+    const msgId = messageIdOverride ?? get().currentMessageId;
+    dashboardAPI.setMessageId(msgId);
     const originalFormattedMessageId = dashboardAPI.getFormattedMessageId();
 
 
@@ -510,14 +524,16 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
 
         switch (taskStatus.status) {
-          case "completed":
-
+          case "completed": {
             // Check both result and data fields
             const dashboardResult = taskStatus.result || taskStatus.data;
 
+            if (typeof localStorage !== "undefined") {
+              localStorage.removeItem("adro_polling_task");
+            }
+            useChatStore.getState().fetchChatTitles();
+
             if (dashboardResult) {
-
-
               set({
                 dashboardData: dashboardResult,
                 hasData: true,
@@ -525,10 +541,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 polling: false,
                 currentTaskId: null,
               });
-
-
             } else {
-           
               set({
                 dashboardData: INITIAL_DASHBOARD_DATA,
                 hasData: false,
@@ -536,12 +549,14 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 polling: false,
                 currentTaskId: null,
               });
-
             }
             break;
+          }
 
-          case "failed":
-
+          case "failed": {
+            if (typeof localStorage !== "undefined") {
+              localStorage.removeItem("adro_polling_task");
+            }
             set({
               dashboardData: INITIAL_DASHBOARD_DATA,
               hasData: false,
@@ -549,26 +564,22 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
               polling: false,
               currentTaskId: null,
             });
-
             break;
+          }
 
           case "pending":
           case "processing":
-            
-          
             setTimeout(() => {
               if (get().polling && get().currentTaskId === taskId) {
-                get().pollTaskStatus(taskId);
+                get().pollTaskStatus(taskId, msgId);
               }
             }, 10000);
             break;
 
           default:
-
-            // Continue polling after 10 seconds
             setTimeout(() => {
               if (get().polling && get().currentTaskId === taskId) {
-                get().pollTaskStatus(taskId);
+                get().pollTaskStatus(taskId, msgId);
               }
             }, 10000);
             break;
@@ -691,13 +702,32 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   stopPolling: () => {
-  
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem("adro_polling_task");
+    }
     set({
       polling: false,
       currentTaskId: null,
       loading: false,
     });
+  },
 
+  resumePollingIfNeeded: () => {
+    if (typeof localStorage === "undefined") return;
+    try {
+      const stored = localStorage.getItem("adro_polling_task");
+      if (!stored) return;
+      const { taskId, chatId, messageId } = JSON.parse(stored);
+      if (!taskId || !chatId) return;
+      // Restore chat context
+      dashboardAPI.setChatId(chatId);
+      dashboardAPI.setMessageId(messageId || "0");
+      set({ currentChatId: chatId, currentMessageId: messageId || "0" });
+      set({ currentTaskId: taskId, polling: true, loading: false });
+      get().pollTaskStatus(taskId, messageId);
+    } catch {
+      localStorage.removeItem("adro_polling_task");
+    }
   },
 
   resetDashboard: () => {

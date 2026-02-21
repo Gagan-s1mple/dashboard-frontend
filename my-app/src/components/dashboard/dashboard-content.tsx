@@ -116,6 +116,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     dashboardData,
     fetchDashboardData,
     resetDashboard,
+    resumePollingIfNeeded,
   } = useDashboardStore();
 
   const { uploading } = useUploadStore();
@@ -170,10 +171,27 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   };
 
-  // Load files on mount
+  // Load files and resume polling (if user refreshed during a query) on mount
   useEffect(() => {
     loadInitialFiles();
+    resumePollingIfNeeded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ===== ENSURE SELECTED FILES REMAIN VALID AFTER FILES LOAD =====
+  // This effect validates selected files against available files and keeps valid ones
+  useEffect(() => {
+    if (availableFiles && availableFiles.length > 0 && selectedFiles && selectedFiles.length > 0) {
+      const validIds = new Set(availableFiles.map((f) => f.id));
+      const stillValidFiles = selectedFiles.filter((id) => validIds.has(id));
+      
+      // Only update if there's a change (files removed from system)
+      if (stillValidFiles.length !== selectedFiles.length) {
+        setSelectedFiles(stillValidFiles);
+        setStoreSelectedFiles(stillValidFiles);
+      }
+    }
+  }, [availableFiles]);
 
   // ===== CHAT STORE SYNC =====
   useEffect(() => {
@@ -242,11 +260,14 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       setAvailableFiles(dbFiles);
       setStoreAvailableFiles(dbFiles);
 
-      // Clear selected files if no files available
-      if (files.length === 0) {
-        setSelectedFiles([]);
-        setStoreSelectedFiles([]);
-      }
+      // Restore selected files from store, filtering for valid files
+      const validIds = new Set(dbFiles.map((f) => f.id));
+      const currentSelected = useChatStore.getState().selectedFiles || [];
+      
+      // Filter to keep only selected files that still exist in available files
+      const filtered = currentSelected.filter((id) => validIds.has(id));
+      setSelectedFiles(filtered);
+      setStoreSelectedFiles(filtered);
     } catch (error) {
       // On error, set empty arrays
       console.error("Error loading files:", error);
@@ -1211,7 +1232,10 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         onClose={() => {
           setShowFileDialog(false);
           setShowFileUploadModal(false);
-          // Reset upload success state when closing
+          setUploadSuccess(false);
+          setRecentlyUploadedFile(null);
+        }}
+        onOpenUploadModal={() => {
           setUploadSuccess(false);
           setRecentlyUploadedFile(null);
         }}

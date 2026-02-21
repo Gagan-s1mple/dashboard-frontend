@@ -17,9 +17,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dashboard-Builder",
-  description: "Build Ur dashboards with a single Prompt",
-  
+  title: "ADRO - Your AI Data Analyst",
+  description: "Build your dashboards with a single prompt. Your AI-powered data analyst.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "ADRO",
+  },
+  themeColor: "#0066FF",
 };
 
 export default function RootLayout({
