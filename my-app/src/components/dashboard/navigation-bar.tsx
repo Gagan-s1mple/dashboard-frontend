@@ -8,7 +8,7 @@ import {
 } from "../ui/dropdown-menu";
 import { User, Settings, LogOut } from "lucide-react";
 import Image from "next/image";
-import { InstallAppButton } from "../pwa/install-app-button";
+// import { InstallAppButton } from "../pwa/install-app-button";
 
 interface NavigationBarProps {
   userEmail: string;
@@ -42,7 +42,7 @@ export const NavigationBar = ({
       </div>
 
       <div className="flex items-center gap-4">
-        <InstallAppButton />
+        {/* <InstallAppButton /> */}
         {userEmail && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

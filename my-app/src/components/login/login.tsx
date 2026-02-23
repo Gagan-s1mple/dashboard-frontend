@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -11,7 +12,9 @@ import { Label } from "../ui/label";
 import Image from "next/image";
 import { useLoginStore } from "@/src/services/api/login/login-store";
 import { toast } from "sonner";
-import { ArrowRight, AlertCircle,Eye,EyeOff,Sparkles } from "lucide-react"; // Add icons for better UI
+import { Eye, EyeOff } from "lucide-react"; // Add icons for better UI
+import { InstallAppButton } from "../pwa/install-app-button";
+
 
 export function LoginForm({
   className,
@@ -68,15 +71,19 @@ export function LoginForm({
 return (
   <div
     className={cn(
-     "min-h-screen flex items-center justify-center  p-4"
+     "min-h-screen flex items-center justify-center  p-4 relative"
 
 ,
       className,
     )}
     {...props}
-  >
+  > 
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(59,130,246,0.15),transparent_60%)]" />
-
+    
+    <div className="absolute top-4 right-4 z-50">
+      <InstallAppButton />
+    </div>
+   
     <Card
   className="relative w-full max-w-md
   bg-white/20 backdrop-blur-xl
@@ -210,6 +217,7 @@ return (
 
       </CardContent>
     </Card>
+
   </div>
 );
 
