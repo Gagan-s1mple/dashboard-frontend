@@ -102,9 +102,9 @@ export const FileDialogs = ({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 flex gap-6 p-6 overflow-hidden">
+          <div className="flex-1 flex gap-6 p-6 min-h-0 overflow-hidden">
             {/* Available Files */}
-            <div className="flex-1 flex flex-col border border-slate-200 rounded-lg">
+            <div className="flex-1 flex flex-col border border-slate-200 rounded-lg min-h-0">
               <div className="p-4 border-b">
                 <div className="flex items-center justify-between">
                   <h4 className="font-semibold text-slate-800">
@@ -121,7 +121,7 @@ export const FileDialogs = ({
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-4 min-h-0">
                 {availableFiles.filter(
                   (file) => !selectedFiles.includes(file.id),
                 ).length === 0 ? (
@@ -143,7 +143,7 @@ export const FileDialogs = ({
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <span className="text-lg">{file.icon}</span>
-                            <span className="text-sm text-slate-700 font-medium truncate">
+                            <span className="text-sm text-slate-700 font-medium truncate w-24">
                               {file.name}
                             </span>
                           </div>
@@ -230,7 +230,7 @@ export const FileDialogs = ({
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <span className="text-lg">{file?.icon}</span>
-                            <span className="text-sm text-indigo-700 font-medium truncate">
+                            <span className="text-sm text-indigo-700 font-medium truncate w-24">
                               {file?.name}
                             </span>
                           </div>

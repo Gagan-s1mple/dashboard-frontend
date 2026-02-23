@@ -109,6 +109,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const [toastId, setToastId] = useState<string | number | null>(null);
 
   const { uploadFiles, deleteFileByName } = useFileOperations();
+ 
 
   const {
     loading,
@@ -135,6 +136,9 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     uploadedFiles: storeUploadedFiles,
     availableFiles: storeAvailableFiles,
   } = useChatStore();
+
+const MAX_FILES_PER_SESSION = 5;
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
   // ADD THIS LINE - Get sidebar collapsed state
   const { isCollapsed } = useSidebarStore();
@@ -306,8 +310,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         if (toastId) {
           toast.dismiss(toastId);
         }
-        const id = toast.success("Dashboard ready!");
-        setToastId(id);
+        // const id = toast.success("Dashboard ready!");
+        // setToastId(id);
 
         toastShownRef.current = null;
       } else {
@@ -414,56 +418,62 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   };
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+const handleFileUpload = async (
+  event: React.ChangeEvent<HTMLInputElement>,
+) => {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
 
-    if (!userEmail) {
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Please login first");
-      setToastId(id);
-      return;
+  if (!userEmail) {
+    if (toastId) toast.dismiss(toastId);
+    const id = toast.error("Please login first");
+    setToastId(id);
+    return;
+  }
+  const fileArray = Array.from(files);
+if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
+  if (toastId) toast.dismiss(toastId);
+  const id = toast.error(
+    `You can store maximum ${MAX_FILES_PER_SESSION} files at a time.`
+  );
+  setToastId(id);
+  return;
+}
+
+  try {
+    const newFiles = await uploadFiles(userEmail, fileArray);
+
+    const updatedFiles = [...uploadedFiles, ...newFiles];
+    setUploadedFiles(updatedFiles);
+    setStoreUploadedFiles(updatedFiles);
+
+    const newAvailableFiles = convertToDatabaseFiles(newFiles);
+    const updatedAvailableFiles = [
+      ...availableFiles,
+      ...newAvailableFiles,
+    ];
+    setAvailableFiles(updatedAvailableFiles);
+    setStoreAvailableFiles(updatedAvailableFiles);
+
+    setRecentlyUploadedFile(files[0].name);
+    setUploadSuccess(true);
+  
+
+    if (toastId) toast.dismiss(toastId);
+    const id = toast.success(
+      `Uploaded ${fileArray.length} file(s) successfully!`
+    );
+    setToastId(id);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-
-    try {
-      const newFiles = await uploadFiles(userEmail, Array.from(files));
-      const updatedFiles = [...uploadedFiles, ...newFiles];
-      setUploadedFiles(updatedFiles);
-      setStoreUploadedFiles(updatedFiles);
-
-      const newAvailableFiles = convertToDatabaseFiles(newFiles);
-      const updatedAvailableFiles = [...availableFiles, ...newAvailableFiles];
-      setAvailableFiles(updatedAvailableFiles);
-      setStoreAvailableFiles(updatedAvailableFiles);
-
-      setRecentlyUploadedFile(files[0].name);
-      setUploadSuccess(true);
-
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.success(
-        `Uploaded ${files.length} file(s) successfully!`,
-      );
-      setToastId(id);
-
-      // Don't auto-close, let user select files
-      // Just clear the input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (error) {
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Upload failed. Please try again.");
-      setToastId(id);
-    }
-  };
+  } catch (error) {
+    if (toastId) toast.dismiss(toastId);
+    const id = toast.error("Upload failed. Please try again.");
+    setToastId(id);
+  }
+};
 
   const handleDeleteFile = async (filename: string) => {
     try {
@@ -1182,13 +1192,13 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
           {/* WITH this div: */}
           <div
-            className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300"
+            className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300 "
             style={{
               left: isCollapsed ? "4rem" : "18rem",
               right: "2rem",
             }}
           >
-            <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto">
+            <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto ">
               <MessageInput
                 inputValue={inputValue}
                 setInputValue={setInputValue}

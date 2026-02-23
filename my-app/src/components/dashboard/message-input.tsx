@@ -45,7 +45,7 @@ export const MessageInput = ({
   };
 
   return (
-    <div className=" bg-white/70 border border-white/20 rounded-2xl shadow-2xl overflow-hidden max-w-3xl">
+    <div className=" bg-white/70 border rounded-2xl shadow-2xl   border-slate-200  overflow-hidden max-w-3xl">
       <div className="p-4 pb-0 relative">
         <textarea
           ref={inputRef}
