@@ -1,3 +1,3 @@
 export const url ={
-    backendUrl : "https://52-23-223-188.sslip.io"
+    backendUrl : "http://54.227.120.195:8000"
 }
