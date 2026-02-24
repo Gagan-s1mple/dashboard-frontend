@@ -10,6 +10,11 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
 import {
+  persistSelectedFiles,
+  restoreSelectedFiles,
+  clearPersistedSelectedFiles,
+} from "@/src/services/utils/file-selection-storage";
+import {
   LayoutDashboard,
   TrendingUp,
   BarChart,
@@ -56,6 +61,7 @@ import { QuickQueries } from "./quick-queries";
 import { MessageInput } from "./message-input";
 import { FileDialogs } from "./file-dialogs";
 import { ThinkingIndicator } from "./loaders";
+import { CustomRefreshModal } from "./custom-refresh-modal";
 
 // Import utilities
 import {
@@ -99,6 +105,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const [isListening, setIsListening] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const [showRefreshWarning, setShowRefreshWarning] = useState(false);
+  const pendingRefreshRef = useRef<boolean>(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -179,8 +187,57 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
   useEffect(() => {
     loadInitialFiles();
     resumePollingIfNeeded();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
+
+  // Restore selected files from localStorage on mount
+  useEffect(() => {
+    const restoredFiles = restoreSelectedFiles();
+    if (restoredFiles.length > 0) {
+      if (selectedFiles.length === 0) {
+        setSelectedFiles(restoredFiles);
+        setStoreSelectedFiles(restoredFiles);
+      }
+    }
+  }, []);
+
+  // Handle beforeunload warning when polling is active
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const dashboardState = useDashboardStore.getState();
+      const isPolling = dashboardState.polling || loading;
+      
+      console.log("=== beforeunload event triggered ===");
+      console.log("loading:", loading);
+      console.log("polling:", dashboardState.polling);
+      console.log("isPolling:", isPolling);
+      
+      if (isPolling) {
+        console.log("🚫 Preventing refresh - polling/loading active");
+        
+        // Show our custom modal
+        setShowRefreshWarning(true);
+        pendingRefreshRef.current = true;
+        
+        // For modern browsers, we need to return void and show custom UI
+        // The browser's default dialog will still appear briefly, but we'll handle it
+        e.preventDefault();
+        
+        // In some browsers, setting returnValue to empty string is needed
+        e.returnValue = "";
+        
+        // Return any string to trigger the browser's warning (we'll overlay ours)
+        return "";
+      }
+    };
+
+    // Add the event listener
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [loading]);
 
   // ===== ENSURE SELECTED FILES REMAIN VALID AFTER FILES LOAD =====
   // This effect validates selected files against available files and keeps valid ones
@@ -491,8 +548,12 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       setAvailableFiles(updatedAvailableFiles);
       setStoreAvailableFiles(updatedAvailableFiles);
 
-      setSelectedFiles((prev) => prev.filter((file) => file !== filename));
-      setStoreSelectedFiles((prev) => prev.filter((file) => file !== filename));
+      setSelectedFiles((prev) => {
+        const filtered = prev.filter((file) => file !== filename);
+        persistSelectedFiles(filtered);
+        setStoreSelectedFiles(filtered);
+        return filtered;
+      });
 
       if (toastId) {
         toast.dismiss(toastId);
@@ -628,11 +689,21 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
     }
 
     addUserMessage(inputValue.trim(), selectedFiles);
+    persistSelectedFiles(selectedFiles);
 
     setLastQuery(inputValue.trim());
     setPendingQuery(inputValue.trim());
     setIsLoading(true);
     setInputValue("");
+
+    // Inform user that polling has started
+    if (toastId) {
+      toast.dismiss(toastId);
+    }
+    const id = toast.info("Processing query... If you refresh, you'll see a warning.", {
+      duration: 3000,
+    });
+    setToastId(id);
 
     abortControllerRef.current = new AbortController();
 
@@ -687,9 +758,19 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
     }
 
     addUserMessage(` ${lastQuery}`, selectedFiles);
+    persistSelectedFiles(selectedFiles);
 
     setPendingQuery(lastQuery);
     setIsLoading(true);
+
+    // Inform user that polling has started
+    if (toastId) {
+      toast.dismiss(toastId);
+    }
+    const id = toast.info("Retrying query... If you refresh, you'll see a warning.", {
+      duration: 3000,
+    });
+    setToastId(id);
 
     const cleanFileNames = selectedFiles
       .map((file) => file.replace(/\.csv$/i, ""))
@@ -723,17 +804,41 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   };
 
   const toggleFileSelection = (fileName: string) => {
-    // Compute the new selection without side effects in the state updater
     setSelectedFiles((prev) => {
-      return prev.includes(fileName)
+      const newSelection = prev.includes(fileName)
         ? prev.filter((f) => f !== fileName)
         : [...prev, fileName];
+      persistSelectedFiles(newSelection);
+      setStoreSelectedFiles(newSelection);
+      return newSelection;
     });
   };
 
   const clearSelectedFiles = () => {
     setSelectedFiles([]);
     setStoreSelectedFiles([]);
+    clearPersistedSelectedFiles();
+  };
+
+  const handleRefreshWarningCancel = () => {
+    console.log("Refresh cancelled by user");
+    setShowRefreshWarning(false);
+    pendingRefreshRef.current = false;
+  };
+
+  const handleRefreshWarningContinue = () => {
+    console.log("Refresh confirmed by user - navigating to home screen");
+    setShowRefreshWarning(false);
+    clearPersistedSelectedFiles();
+    
+    // Navigate to the main/home screen (screen one in the image)
+    // Using router to navigate to the home page
+    router.push('/'); // Adjust this path to match your home screen route
+    
+    // If you need to reset the chat/clear messages as well:
+    setMessages([]);
+    setLastQuery('');
+    resetDashboard(); // If you have a reset function for the dashboard store
   };
 
   // Process dashboard data to remove empty sections
@@ -754,6 +859,13 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Use the custom modal instead of the shadcn AlertDialog */}
+      <CustomRefreshModal
+        isOpen={showRefreshWarning}
+        onCancel={handleRefreshWarningCancel}
+        onContinue={handleRefreshWarningContinue}
+      />
+
       <input
         ref={fileInputRef}
         type="file"
