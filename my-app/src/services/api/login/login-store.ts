@@ -73,7 +73,9 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       // ✅ Success case
       const newEmail = data.email || payload.username;
       const lastLoginEmail = localStorage.getItem("lastLoginEmail");
-      const isNewUser = lastLoginEmail && lastLoginEmail !== newEmail;
+      
+      // NEW USER: Either no lastLoginEmail (first login ever) OR different email
+      const isNewUser = !lastLoginEmail || lastLoginEmail !== newEmail;
 
       localStorage.setItem("auth_token", data.access_token);
       localStorage.setItem("user_email", newEmail);
@@ -90,12 +92,14 @@ export const useLoginStore = create<LoginState>((set, get) => ({
 
       // ✅ Initialize chat store after successful login
       setTimeout(() => {
-        useChatStore.getState().initializeOnLogin();
-        // Clear selectedFiles only if a NEW user is logging in
         if (isNewUser) {
+          // Clear everything for new user
           useChatStore.getState().setSelectedFiles([]);
+          useChatStore.getState().initializeOnLogin();
+        } else {
+          // For existing user, keep selectedFiles and restore from localStorage
+          useChatStore.getState().initializeOnLogin();
         }
-        // Otherwise keep selected files for same user refreshing
       }, 100);
 
       return data;

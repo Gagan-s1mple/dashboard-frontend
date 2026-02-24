@@ -702,8 +702,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   stopPolling: () => {
-    if (typeof sessionStorage !== "undefined") {
-      sessionStorage.removeItem("adro_polling_task");
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("adro_polling_task");
     }
     set({
       polling: false,

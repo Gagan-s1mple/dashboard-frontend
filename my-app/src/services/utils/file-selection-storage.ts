@@ -1,28 +1,28 @@
 /**
- * Utility functions for managing selected files in localStorage
+ * Utility functions for managing selected files in sessionStorage
  */
 
 export const FILE_SELECTION_STORAGE_KEY = "adro_selected_files";
 
 /**
- * Save selected file IDs to localStorage
+ * Save selected file IDs to sessionStorage
  */
 export const persistSelectedFiles = (fileIds: string[]): void => {
-  if (typeof localStorage === "undefined") return;
+  if (typeof sessionStorage === "undefined") return;
   try {
-    localStorage.setItem(FILE_SELECTION_STORAGE_KEY, JSON.stringify(fileIds));
+    sessionStorage.setItem(FILE_SELECTION_STORAGE_KEY, JSON.stringify(fileIds));
   } catch (error) {
     console.error("Failed to persist selected files:", error);
   }
 };
 
 /**
- * Restore selected file IDs from localStorage
+ * Restore selected file IDs from sessionStorage
  */
 export const restoreSelectedFiles = (): string[] => {
-  if (typeof localStorage === "undefined") return [];
+  if (typeof sessionStorage === "undefined") return [];
   try {
-    const stored = localStorage.getItem(FILE_SELECTION_STORAGE_KEY);
+    const stored = sessionStorage.getItem(FILE_SELECTION_STORAGE_KEY);
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     return Array.isArray(parsed) ? parsed : [];
@@ -33,12 +33,12 @@ export const restoreSelectedFiles = (): string[] => {
 };
 
 /**
- * Clear selected files from localStorage
+ * Clear selected files from sessionStorage
  */
 export const clearPersistedSelectedFiles = (): void => {
-  if (typeof localStorage === "undefined") return;
+  if (typeof sessionStorage === "undefined") return;
   try {
-    localStorage.removeItem(FILE_SELECTION_STORAGE_KEY);
+    sessionStorage.removeItem(FILE_SELECTION_STORAGE_KEY);
   } catch (error) {
     console.error("Failed to clear persisted selected files:", error);
   }

@@ -14,6 +14,7 @@ import {
   restoreSelectedFiles,
   clearPersistedSelectedFiles,
 } from "@/src/services/utils/file-selection-storage";
+import { RefreshDetector } from "@/src/services/utils/refresh-detector";
 import {
   LayoutDashboard,
   TrendingUp,
@@ -92,16 +93,14 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const toastShownRef = useRef<string | null>(null);
+  const isRetryingRef = useRef<boolean>(false);
 
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [showFileDialog, setShowFileDialog] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [showFileUploadModal, setShowFileUploadModal] = useState(false);
   const [recentlyUploadedFile, setRecentlyUploadedFile] = useState<
     string | null
   >(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [availableFiles, setAvailableFiles] = useState<DatabaseFile[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -110,14 +109,12 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [lastQuery, setLastQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const [hasShownNoFileToast, setHasShownNoFileToast] = useState(false);
   const [toastId, setToastId] = useState<string | number | null>(null);
 
   const { uploadFiles, deleteFileByName } = useFileOperations();
- 
 
   const {
     loading,
@@ -131,6 +128,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const { uploading } = useUploadStore();
   const router = useRouter();
 
+  // Use store as source of truth for file state
   const {
     currentChatMessages,
     currentDashboardData,
@@ -143,26 +141,15 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     selectedFiles: storeSelectedFiles,
     uploadedFiles: storeUploadedFiles,
     availableFiles: storeAvailableFiles,
+    lastQuery: storeLastQuery,
+    setLastQuery: setStoreLastQuery,
   } = useChatStore();
 
-const MAX_FILES_PER_SESSION = 5;
-const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+  const MAX_FILES_PER_SESSION = 5;
+  const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
-  // ADD THIS LINE - Get sidebar collapsed state
+  // Get sidebar collapsed state
   const { isCollapsed } = useSidebarStore();
-
-  // Sync with store on mount and when store changes
-  useEffect(() => {
-    if (storeSelectedFiles) {
-      setSelectedFiles(storeSelectedFiles);
-    }
-    if (storeUploadedFiles) {
-      setUploadedFiles(storeUploadedFiles);
-    }
-    if (storeAvailableFiles) {
-      setAvailableFiles(storeAvailableFiles);
-    }
-  }, [storeSelectedFiles, storeUploadedFiles, storeAvailableFiles]);
 
   // Helper function to safely format timestamp
   const formatTimeString = (timestamp: any): string => {
@@ -185,74 +172,34 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
   // Load files and resume polling (if user refreshed during a query) on mount
   useEffect(() => {
+    // Clear any previously stored last query so we don't restore it after refresh
+    setStoreLastQuery("");
     loadInitialFiles();
     resumePollingIfNeeded();
-   
   }, []);
 
-  // Restore selected files from localStorage on mount
+  // ===== SETUP REFRESH DETECTION =====
+  // Only show modal when user tries to refresh while loading/polling
   useEffect(() => {
-    const restoredFiles = restoreSelectedFiles();
-    if (restoredFiles.length > 0) {
-      if (selectedFiles.length === 0) {
-        setSelectedFiles(restoredFiles);
-        setStoreSelectedFiles(restoredFiles);
+    const handleRefreshAttempt = () => {
+      // Don't show modal if not loading
+      if (!isLoading && !loading) {
+        RefreshDetector.allowRefresh();
+        return;
       }
-    }
-  }, []);
 
-  // Handle beforeunload warning when polling is active
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const dashboardState = useDashboardStore.getState();
-      const isPolling = dashboardState.polling || loading;
-      
-      console.log("=== beforeunload event triggered ===");
-      console.log("loading:", loading);
-      console.log("polling:", dashboardState.polling);
-      console.log("isPolling:", isPolling);
-      
-      if (isPolling) {
-        console.log("🚫 Preventing refresh - polling/loading active");
-        
-        // Show our custom modal
-        setShowRefreshWarning(true);
-        pendingRefreshRef.current = true;
-        
-        // For modern browsers, we need to return void and show custom UI
-        // The browser's default dialog will still appear briefly, but we'll handle it
-        e.preventDefault();
-        
-        // In some browsers, setting returnValue to empty string is needed
-        e.returnValue = "";
-        
-        // Return any string to trigger the browser's warning (we'll overlay ours)
-        return "";
-      }
+      // Show modal if loading
+      setShowRefreshWarning(true);
+      pendingRefreshRef.current = true;
     };
 
-    // Add the event listener
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    
+    const cleanup = RefreshDetector.setupRefreshDetector(handleRefreshAttempt);
+
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      cleanup();
+      RefreshDetector.cleanup();
     };
-  }, [loading]);
-
-  // ===== ENSURE SELECTED FILES REMAIN VALID AFTER FILES LOAD =====
-  // This effect validates selected files against available files and keeps valid ones
-  useEffect(() => {
-    if (availableFiles && availableFiles.length > 0 && selectedFiles && selectedFiles.length > 0) {
-      const validIds = new Set(availableFiles.map((f) => f.id));
-      const stillValidFiles = selectedFiles.filter((id) => validIds.has(id));
-      
-      // Only update if there's a change (files removed from system)
-      if (stillValidFiles.length !== selectedFiles.length) {
-        setSelectedFiles(stillValidFiles);
-        setStoreSelectedFiles(stillValidFiles);
-      }
-    }
-  }, [availableFiles]);
+  }, [isLoading, loading]);
 
   // ===== CHAT STORE SYNC =====
   useEffect(() => {
@@ -286,22 +233,8 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
       ) {
         setMessages(convertedMessages);
       }
-
-      // Set lastQuery from the last user message in this chat
-      const lastUserMessage = currentChatMessages
-        .filter(msg => msg.role === 'user')
-        .pop();
-        
-      if (lastUserMessage) {
-        setLastQuery(lastUserMessage.content);
-      }
-
-      if (currentDashboardData) {
-      }
     } else {
       setMessages([]);
-      // Clear lastQuery when no messages
-      setLastQuery('');
     }
   }, [currentChatMessages, currentDashboardData]);
 
@@ -311,14 +244,18 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
   const loadInitialFiles = async () => {
     try {
+      // First, restore any previously selected files from sessionStorage
+      const persistedSelected = restoreSelectedFiles();
+      if (persistedSelected && persistedSelected.length > 0) {
+        setStoreSelectedFiles(persistedSelected);
+      }
+
       const files = await loadExistingFiles();
 
-      // Always update state, even if empty
-      setUploadedFiles(files);
+      // Always update store state, even if empty
       setStoreUploadedFiles(files);
 
       const dbFiles = convertToDatabaseFiles(files);
-      setAvailableFiles(dbFiles);
       setStoreAvailableFiles(dbFiles);
 
       // Restore selected files from store, filtering for valid files
@@ -327,17 +264,19 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
       
       // Filter to keep only selected files that still exist in available files
       const filtered = currentSelected.filter((id) => validIds.has(id));
-      setSelectedFiles(filtered);
-      setStoreSelectedFiles(filtered);
+      
+      // Only update if different
+      if (JSON.stringify(filtered) !== JSON.stringify(currentSelected)) {
+        setStoreSelectedFiles(filtered);
+        persistSelectedFiles(filtered);
+      }
     } catch (error) {
       // On error, set empty arrays
       console.error("Error loading files:", error);
-      setUploadedFiles([]);
       setStoreUploadedFiles([]);
-      setAvailableFiles([]);
       setStoreAvailableFiles([]);
-      setSelectedFiles([]);
       setStoreSelectedFiles([]);
+      clearPersistedSelectedFiles();
     }
   };
 
@@ -488,7 +427,7 @@ const handleFileUpload = async (
     return;
   }
   const fileArray = Array.from(files);
-if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
+if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   if (toastId) toast.dismiss(toastId);
   const id = toast.error(
     `You can store maximum ${MAX_FILES_PER_SESSION} files at a time.`
@@ -500,16 +439,14 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   try {
     const newFiles = await uploadFiles(userEmail, fileArray);
 
-    const updatedFiles = [...uploadedFiles, ...newFiles];
-    setUploadedFiles(updatedFiles);
+    const updatedFiles = [...storeUploadedFiles, ...newFiles];
     setStoreUploadedFiles(updatedFiles);
 
     const newAvailableFiles = convertToDatabaseFiles(newFiles);
     const updatedAvailableFiles = [
-      ...availableFiles,
+      ...storeAvailableFiles,
       ...newAvailableFiles,
     ];
-    setAvailableFiles(updatedAvailableFiles);
     setStoreAvailableFiles(updatedAvailableFiles);
 
     setRecentlyUploadedFile(files[0].name);
@@ -536,24 +473,19 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
     try {
       await deleteFileByName(filename);
 
-      const updatedFiles = uploadedFiles.filter(
+      const updatedFiles = storeUploadedFiles.filter(
         (file) => file.name !== filename,
       );
-      setUploadedFiles(updatedFiles);
       setStoreUploadedFiles(updatedFiles);
 
-      const updatedAvailableFiles = availableFiles.filter(
+      const updatedAvailableFiles = storeAvailableFiles.filter(
         (file) => file.id !== filename,
       );
-      setAvailableFiles(updatedAvailableFiles);
       setStoreAvailableFiles(updatedAvailableFiles);
 
-      setSelectedFiles((prev) => {
-        const filtered = prev.filter((file) => file !== filename);
-        persistSelectedFiles(filtered);
-        setStoreSelectedFiles(filtered);
-        return filtered;
-      });
+      const filtered = storeSelectedFiles.filter((file) => file !== filename);
+      persistSelectedFiles(filtered);
+      setStoreSelectedFiles(filtered);
 
       if (toastId) {
         toast.dismiss(toastId);
@@ -570,16 +502,16 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   };
 
   const getFileNames = () => {
-    if (selectedFiles.length === 0) {
+    if (storeSelectedFiles.length === 0) {
       return "";
     }
-    return selectedFiles.join(",");
+    return storeSelectedFiles.join(",");
   };
 
   const handleQuickQuery = (query: string) => {
     setInputValue(query);
 
-    if (selectedFiles.length === 0) {
+    if (storeSelectedFiles.length === 0) {
       if (!hasShownNoFileToast) {
         if (toastId) {
           toast.dismiss(toastId);
@@ -630,16 +562,16 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       useDashboardStore.getState().setChatInfo(currentChatId, nextMessageId);
     }
 
-    addUserMessage(queryText.trim(), selectedFiles);
+    addUserMessage(queryText.trim(), storeSelectedFiles);
 
-    setLastQuery(queryText.trim());
+    setStoreLastQuery(queryText.trim());
     setPendingQuery(queryText.trim());
     setIsLoading(true);
     setInputValue("");
 
     abortControllerRef.current = new AbortController();
 
-    const cleanFileNames = selectedFiles
+    const cleanFileNames = storeSelectedFiles
       .map((file) => file.replace(/\.csv$/i, ""))
       .join(",");
 
@@ -688,10 +620,10 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       return;
     }
 
-    addUserMessage(inputValue.trim(), selectedFiles);
-    persistSelectedFiles(selectedFiles);
+    addUserMessage(inputValue.trim(), storeSelectedFiles);
+    persistSelectedFiles(storeSelectedFiles);
 
-    setLastQuery(inputValue.trim());
+    setStoreLastQuery(inputValue.trim());
     setPendingQuery(inputValue.trim());
     setIsLoading(true);
     setInputValue("");
@@ -700,15 +632,15 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
     if (toastId) {
       toast.dismiss(toastId);
     }
-    const id = toast.info("Processing query... If you refresh, you'll see a warning.", {
-      duration: 3000,
-    });
-    setToastId(id);
+    // const id = toast.info("Processing query... If you refresh, you'll see a warning.", {
+    //   duration: 3000,
+    // });
+    // setToastId(id);
 
     abortControllerRef.current = new AbortController();
 
-    const cleanFileNames = selectedFiles
-      .map((file) => file.replace(/\.csv$/i, ""))
+    const cleanFileNames = storeSelectedFiles
+      .map((file: string) => file.replace(/\.csv$/i, ""))
       .join(",");
 
     try {
@@ -733,9 +665,12 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   };
 
   const handleRetry = async () => {
-    if (!lastQuery) return;
+    // Mark that we're retrying to prevent refresh modal from showing
+    isRetryingRef.current = true;
+    
+    if (!storeLastQuery) return;
 
-    if (selectedFiles.length === 0) {
+    if (storeSelectedFiles.length === 0) {
       if (!hasShownNoFileToast) {
         if (toastId) {
           toast.dismiss(toastId);
@@ -757,27 +692,27 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       useDashboardStore.getState().setChatInfo(currentChatId, retryMessageId);
     }
 
-    addUserMessage(` ${lastQuery}`, selectedFiles);
-    persistSelectedFiles(selectedFiles);
+    addUserMessage(` ${storeLastQuery}`, storeSelectedFiles);
+    persistSelectedFiles(storeSelectedFiles);
 
-    setPendingQuery(lastQuery);
+    setPendingQuery(storeLastQuery);
     setIsLoading(true);
 
     // Inform user that polling has started
     if (toastId) {
       toast.dismiss(toastId);
     }
-    const id = toast.info("Retrying query... If you refresh, you'll see a warning.", {
-      duration: 3000,
-    });
-    setToastId(id);
+    // const id = toast.info("Retrying query... If you refresh, you'll see a warning.", {
+    //   duration: 3000,
+    // });
+    // setToastId(id);
 
-    const cleanFileNames = selectedFiles
+    const cleanFileNames = storeSelectedFiles
       .map((file) => file.replace(/\.csv$/i, ""))
       .join(",");
 
     try {
-      await fetchDashboardData(lastQuery, cleanFileNames);
+      await fetchDashboardData(storeLastQuery, cleanFileNames);
     } catch (error) {
       addAssistantMessage("Retry failed. Please try again.", null);
       setPendingQuery(null);
@@ -788,6 +723,9 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       }
       const id = toast.error("Retry failed.");
       setToastId(id);
+    } finally {
+      // Mark that retry is done
+      isRetryingRef.current = false;
     }
   };
 
@@ -804,18 +742,14 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   };
 
   const toggleFileSelection = (fileName: string) => {
-    setSelectedFiles((prev) => {
-      const newSelection = prev.includes(fileName)
-        ? prev.filter((f) => f !== fileName)
-        : [...prev, fileName];
-      persistSelectedFiles(newSelection);
-      setStoreSelectedFiles(newSelection);
-      return newSelection;
-    });
+    const newSelection = storeSelectedFiles.includes(fileName)
+      ? storeSelectedFiles.filter((f) => f !== fileName)
+      : [...storeSelectedFiles, fileName];
+    persistSelectedFiles(newSelection);
+    setStoreSelectedFiles(newSelection);
   };
 
   const clearSelectedFiles = () => {
-    setSelectedFiles([]);
     setStoreSelectedFiles([]);
     clearPersistedSelectedFiles();
   };
@@ -827,18 +761,24 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
   };
 
   const handleRefreshWarningContinue = () => {
-    console.log("Refresh confirmed by user - navigating to home screen");
+    console.log("Refresh confirmed by user - allowing refresh");
     setShowRefreshWarning(false);
+    pendingRefreshRef.current = false;
+    
+    // Explicitly stop any ongoing polling and clear persisted polling task
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("adro_polling_task");
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
     clearPersistedSelectedFiles();
-    
-    // Navigate to the main/home screen (screen one in the image)
-    // Using router to navigate to the home page
-    router.push('/'); // Adjust this path to match your home screen route
-    
-    // If you need to reset the chat/clear messages as well:
-    setMessages([]);
-    setLastQuery('');
-    resetDashboard(); // If you have a reset function for the dashboard store
+    setStoreSelectedFiles([]);
+
+    // Navigate to main dashboard route instead of staying on the same page
+    router.push("/dashboard");
   };
 
   // Process dashboard data to remove empty sections
@@ -1037,10 +977,10 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                   <Plus className="w-5 h-5" />
                 </Button>
 
-                {selectedFiles.length > 0 && (
+                {storeSelectedFiles.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                    {selectedFiles.map((fileId) => {
-                      const file = availableFiles.find((f) => f.id === fileId);
+                    {storeSelectedFiles.map((fileId: string) => {
+                      const file = storeAvailableFiles.find((f: any) => f.id === fileId);
                       return (
                         <Badge
                           key={fileId}
@@ -1063,7 +1003,7 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                   </div>
                 )}
 
-                {selectedFiles.length === 0 && <div className="flex-1" />}
+                {storeSelectedFiles.length === 0 && <div className="flex-1" />}
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
@@ -1314,11 +1254,11 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
               <MessageInput
                 inputValue={inputValue}
                 setInputValue={setInputValue}
-                selectedFiles={selectedFiles}
-                availableFiles={availableFiles}
+                selectedFiles={storeSelectedFiles}
+                availableFiles={storeAvailableFiles}
                 isLoading={isLoading}
                 isListening={isListening}
-                lastQuery={lastQuery}
+                lastQuery={storeLastQuery}
                 onSendMessage={handleSendMessage}
                 onStopRequest={handleStopRequest}
                 onRetry={handleRetry}
@@ -1341,8 +1281,8 @@ if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
         setShowFileDialog={setShowFileDialog}
         showFileUploadModal={showFileUploadModal}
         setShowFileUploadModal={setShowFileUploadModal}
-        availableFiles={availableFiles}
-        selectedFiles={selectedFiles}
+        availableFiles={storeAvailableFiles}
+        selectedFiles={storeSelectedFiles}
         toggleFileSelection={toggleFileSelection}
         handleDeleteFile={handleDeleteFile}
         uploadSuccess={uploadSuccess}
