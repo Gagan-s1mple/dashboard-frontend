@@ -146,8 +146,14 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
-     
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+
+        // 🔥 Exact backend match
+        if (errorData?.detail === "Insufficient credits") {
+          throw new Error("INSUFFICIENT_CREDITS");
+        }
+
+        throw new Error(errorData?.detail || "Something went wrong");
       }
 
       const responseData = await response.json();
@@ -175,7 +181,6 @@ export class DashboardAPI {
         content = responseData.content;
         table = responseData.table;
       } else {
-
         throw new Error("Invalid response format");
       }
 
@@ -189,11 +194,9 @@ export class DashboardAPI {
 
       // Log content and table if present
       if (content) {
-       
       }
 
       if (table) {
-
       }
 
       console.groupEnd();
@@ -206,8 +209,6 @@ export class DashboardAPI {
         table,
       };
     } catch (error) {
-     
-
       throw error;
     }
   }
@@ -216,8 +217,6 @@ export class DashboardAPI {
    * Get task status (for polling)
    */
   async getTaskStatus(taskId: string, messageId?: string): Promise<TaskStatus> {
-
-
     try {
       const startTime = performance.now();
       const getAuthToken = (): string | null => {
@@ -255,7 +254,6 @@ export class DashboardAPI {
       console.groupEnd();
       return responseData;
     } catch (error) {
-
       throw error;
     }
   }
@@ -268,18 +266,13 @@ export class DashboardAPI {
     file_name: string,
     chatTitle?: string, // Add optional chatTitle parameter
   ): Promise<{ task_id: string }> {
-
-
     try {
- 
-
       const requestBody: any = {
         message,
         file_name,
         chat_id: this.chatId,
         message_id: this.getFormattedMessageId(), // Use formatted message_id
       };
-
 
       if (
         chatTitle &&
@@ -292,8 +285,6 @@ export class DashboardAPI {
         // Use the actual user query as the title
         requestBody.title = message; // Use the query as title instead of hardcoded text
       }
-
-
 
       const startTime = performance.now();
       const getAuthToken = (): string | null => {
@@ -318,32 +309,38 @@ export class DashboardAPI {
       const endTime = performance.now();
       const duration = (endTime - startTime).toFixed(2);
 
-
-
       if (!response.ok) {
+        let responseData: any = null;
 
+        try {
+          responseData = await response.json();
+        } catch {
+          responseData = null;
+        }
+
+        const backendMessage =
+          responseData?.detail || responseData?.message || "";
+
+        if (backendMessage.toLowerCase().includes("credit")) {
+          throw new Error("INSUFFICIENT_CREDITS");
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const responseData = await response.json();
 
-
       if (!responseData.task_id) {
-     
         throw new Error("No task_id received from server");
       }
 
-      
       return { task_id: responseData.task_id };
     } catch (error) {
-
       throw error;
     }
   }
 }
 
 export const dashboardAPI = new DashboardAPI();
-
 
 interface ChatMessage {
   id: string; // Changed to string
@@ -409,7 +406,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   chatHistory: [],
 
   setChatInfo: (chatId: string, messageId: string) => {
-  
     set({ currentChatId: chatId, currentMessageId: messageId });
     dashboardAPI.setChatId(chatId);
     dashboardAPI.setMessageId(messageId);
@@ -420,8 +416,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     file_name: string,
     chatTitle?: string,
   ) => {
- 
-
     // Get current chat ID from chat store
     const currentChatId = useChatStore.getState().currentChatId;
 
@@ -434,7 +428,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     // Get the CURRENT message ID before incrementing
     const currentMessageId = get().currentMessageId;
 
-
     // Store current query and files for chat history
     currentQueryCache = query;
     currentFilesCache = file_name.split(",");
@@ -446,14 +439,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     set({ loading: true, hasData: false });
 
     try {
-
       const { task_id } = await dashboardAPI.createDashboardTask(
         query,
         file_name,
         chatTitle,
       );
-
-  
 
       // AFTER successful task creation, increment the message ID for NEXT query
       const nextMessageId = (parseInt(currentMessageId, 10) + 1).toString();
@@ -474,7 +464,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       if (typeof localStorage !== "undefined") {
         localStorage.setItem(
           "adro_polling_task",
-          JSON.stringify({ taskId: task_id, chatId, messageId: messageIdUsed })
+          JSON.stringify({ taskId: task_id, chatId, messageId: messageIdUsed }),
         );
       }
 
@@ -483,7 +473,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Step 3: Start polling for this task (pass messageId used for task creation)
       get().pollTaskStatus(task_id, messageIdUsed);
-    } catch (error) {
+    } catch (error:any) {
+      if (error.message === "INSUFFICIENT_CREDITS") {
+        throw error;
+      }
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem("adro_polling_task");
       }
@@ -494,6 +487,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         polling: false,
         currentTaskId: null,
       });
+      throw error;
     }
   },
 
@@ -503,25 +497,18 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     dashboardAPI.setMessageId(msgId);
     const originalFormattedMessageId = dashboardAPI.getFormattedMessageId();
 
-
-
     const poll = async () => {
       const { polling } = get();
       if (!polling) {
-
         return;
       }
 
       try {
-        
-
         // PASS THE ORIGINAL MESSAGE-ID TO getTaskStatus
         const taskStatus = await dashboardAPI.getTaskStatus(
           taskId,
           originalFormattedMessageId,
         );
-
-
 
         switch (taskStatus.status) {
           case "completed": {
@@ -586,10 +573,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         }
       } catch (error) {
         throw error;
-  
       }
     };
-
 
     poll();
   },
@@ -615,15 +600,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       timestamp: new Date(),
     };
 
-
     set({
       currentMessageId: newMessageId,
       chatHistory: [...state.chatHistory, newMessage],
     });
 
-
     if (response) {
-
       const assistantMessage =
         response.content || "Dashboard generated successfully! ✨";
       useChatStore.getState().addAssistantMessage(assistantMessage, response);
@@ -639,8 +621,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     dashboardAPI.setChatId(newChatId);
     dashboardAPI.resetMessageId();
 
-
-
     set({
       currentChatId: newChatId,
       currentMessageId: "0",
@@ -655,8 +635,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     // Clear cache
     currentQueryCache = "";
     currentFilesCache = [];
-
-
   },
 
   // Load a specific chat from history
@@ -682,10 +660,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Also load in chat store
       useChatStore.getState().fetchChatHistory(chatId);
-
-
     } else {
-
     }
   },
 
@@ -731,7 +706,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   resetDashboard: () => {
-
     set({
       hasData: false,
       dashboardData: INITIAL_DASHBOARD_DATA,

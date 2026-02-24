@@ -19,12 +19,14 @@ export class RefreshDetector {
   static setupRefreshDetector(
     onRefreshAttempt: () => void,
   ): () => void {
-    // Listen for keyboard shortcuts (F5, Ctrl+R, Cmd+R)
+    // Listen for keyboard shortcuts (F5, Ctrl+R, Cmd+R, Ctrl+Shift+R)
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
         e.key === "F5" ||
-        (e.ctrlKey && e.key === "r") ||
-        (e.metaKey && e.key === "r")
+        (e.ctrlKey && e.key === "r" && !e.shiftKey) ||
+        (e.metaKey && e.key === "r" && !e.shiftKey) ||
+        (e.ctrlKey && e.shiftKey && e.key === "r") ||
+        (e.metaKey && e.shiftKey && e.key === "r")
       ) {
         e.preventDefault();
         onRefreshAttempt();

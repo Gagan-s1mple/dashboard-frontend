@@ -5,7 +5,6 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { toast } from "sonner";
@@ -15,31 +14,7 @@ import {
   clearPersistedSelectedFiles,
 } from "@/src/services/utils/file-selection-storage";
 import { RefreshDetector } from "@/src/services/utils/refresh-detector";
-import {
-  LayoutDashboard,
-  TrendingUp,
-  BarChart,
-  FileText,
-  Printer,
-  Download,
-  Upload,
-  FileSpreadsheet,
-  X,
-  Plus,
-  Check,
-  Database,
-  Copy,
-  ArrowUp,
-  RotateCcw,
-  Clock,
-  Brain,
-  Calendar,
-  DownloadCloud,
-  Image,
-  FileJson,
-  Mic,
-  CircleStop,
-} from "lucide-react";
+import { X, Plus, Check, Copy, ArrowUp, Mic, CircleStop } from "lucide-react";
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -130,6 +105,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
   // Use store as source of truth for file state
   const {
+    currentChatId,
     currentChatMessages,
     currentDashboardData,
     isLoadingHistory,
@@ -227,16 +203,53 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
         };
       });
 
+      // Always update messages to show all conversation history (not just pending)
+      setMessages(convertedMessages);
+
+      // ===== CHECK FOR PENDING POLLING ON CHAT LOAD =====
+      // If the last message is a user message without a response,
+      // and there's an active polling task for THIS specific chat, show the loader
+      const lastMessage = currentChatMessages[currentChatMessages.length - 1];
       if (
-        JSON.stringify(convertedMessages.map((m) => m.id)) !==
-        JSON.stringify(messages.map((m) => m.id))
+        lastMessage &&
+        lastMessage.role === "user" &&
+        !lastMessage.response
       ) {
-        setMessages(convertedMessages);
+        // Check if there's an active polling task in localStorage
+        try {
+          const stored = localStorage.getItem("adro_polling_task");
+          if (stored) {
+            const { taskId, chatId } = JSON.parse(stored);
+            // Only restore polling if it's for the CURRENT chat
+            if (taskId && chatId === currentChatId) {
+              setPendingQuery(lastMessage.content);
+              setIsLoading(true);
+            } else {
+              // Different chat or no pending task, clear the loader
+              setIsLoading(false);
+              setPendingQuery(null);
+            }
+          } else {
+            // No pending task in localStorage, clear the loader
+            setIsLoading(false);
+            setPendingQuery(null);
+          }
+        } catch {
+          // Ignore parsing errors, clear the loader
+          setIsLoading(false);
+          setPendingQuery(null);
+        }
+      } else {
+        // Last message is from assistant or there are no messages, clear the loader
+        setIsLoading(false);
+        setPendingQuery(null);
       }
     } else {
       setMessages([]);
+      setIsLoading(false);
+      setPendingQuery(null);
     }
-  }, [currentChatMessages, currentDashboardData]);
+  }, [currentChatMessages, currentDashboardData, currentChatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -261,10 +274,10 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       // Restore selected files from store, filtering for valid files
       const validIds = new Set(dbFiles.map((f) => f.id));
       const currentSelected = useChatStore.getState().selectedFiles || [];
-      
+
       // Filter to keep only selected files that still exist in available files
       const filtered = currentSelected.filter((id) => validIds.has(id));
-      
+
       // Only update if different
       if (JSON.stringify(filtered) !== JSON.stringify(currentSelected)) {
         setStoreSelectedFiles(filtered);
@@ -280,7 +293,16 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   };
 
-  // Handle dashboard data when it's received
+  // ===== RESTORE POLLING WHEN PENDING QUERY DETECTED =====
+  // This effect handles resuming polling when user clicks on a chat 
+  // that had an in-progress query
+  useEffect(() => {
+    if (pendingQuery && isLoading) {
+      resumePollingIfNeeded();
+    }
+  }, [pendingQuery, isLoading]);
+
+  // ===== HANDLE DASHBOARD DATA ARRIVAL =====
   useEffect(() => {
     if (hasData && dashboardData && isLoading && pendingQuery) {
       const now = new Date().getTime();
@@ -414,60 +436,59 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   };
 
-const handleFileUpload = async (
-  event: React.ChangeEvent<HTMLInputElement>,
-) => {
-  const files = event.target.files;
-  if (!files || files.length === 0) return;
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-  if (!userEmail) {
-    if (toastId) toast.dismiss(toastId);
-    const id = toast.error("Please login first");
-    setToastId(id);
-    return;
-  }
-  const fileArray = Array.from(files);
-if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
-  if (toastId) toast.dismiss(toastId);
-  const id = toast.error(
-    `You can store maximum ${MAX_FILES_PER_SESSION} files at a time.`
-  );
-  setToastId(id);
-  return;
-}
-
-  try {
-    const newFiles = await uploadFiles(userEmail, fileArray);
-
-    const updatedFiles = [...storeUploadedFiles, ...newFiles];
-    setStoreUploadedFiles(updatedFiles);
-
-    const newAvailableFiles = convertToDatabaseFiles(newFiles);
-    const updatedAvailableFiles = [
-      ...storeAvailableFiles,
-      ...newAvailableFiles,
-    ];
-    setStoreAvailableFiles(updatedAvailableFiles);
-
-    setRecentlyUploadedFile(files[0].name);
-    setUploadSuccess(true);
-  
-
-    if (toastId) toast.dismiss(toastId);
-    const id = toast.success(
-      `Uploaded ${fileArray.length} file(s) successfully!`
-    );
-    setToastId(id);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (!userEmail) {
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.error("Please login first");
+      setToastId(id);
+      return;
     }
-  } catch (error) {
-    if (toastId) toast.dismiss(toastId);
-    const id = toast.error("Upload failed. Please try again.");
-    setToastId(id);
-  }
-};
+    const fileArray = Array.from(files);
+    if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.error(
+        `You can store maximum ${MAX_FILES_PER_SESSION} files at a time.`,
+      );
+      setToastId(id);
+      return;
+    }
+
+    try {
+      const newFiles = await uploadFiles(userEmail, fileArray);
+
+      const updatedFiles = [...storeUploadedFiles, ...newFiles];
+      setStoreUploadedFiles(updatedFiles);
+
+      const newAvailableFiles = convertToDatabaseFiles(newFiles);
+      const updatedAvailableFiles = [
+        ...storeAvailableFiles,
+        ...newAvailableFiles,
+      ];
+      setStoreAvailableFiles(updatedAvailableFiles);
+
+      setRecentlyUploadedFile(files[0].name);
+      setUploadSuccess(true);
+
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.success(
+        `Uploaded ${fileArray.length} file(s) successfully!`,
+      );
+      setToastId(id);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.error("Upload failed. Please try again.");
+      setToastId(id);
+    }
+  };
 
   const handleDeleteFile = async (filename: string) => {
     try {
@@ -577,22 +598,29 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
 
     try {
       await fetchDashboardData(queryText.trim(), cleanFileNames);
-    } catch (error) {
-      addAssistantMessage(
-        "Failed to generate dashboard. Please try again.",
-        null,
-      );
+    } catch (error: any) {
+      console.log("🔥 ERROR MESSAGE:", error?.message);
       setPendingQuery(null);
       setIsLoading(false);
-
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Failed to generate dashboard.");
-      setToastId(id);
-
       abortControllerRef.current = null;
       toastShownRef.current = null;
+
+      if (toastId) toast.dismiss(toastId);
+
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don’t have enough credits to generate dashboard.",
+        );
+        setToastId(id);
+      } else {
+        addAssistantMessage(
+          "Failed to generate dashboard. Please try again.",
+          null,
+        );
+
+        const id = toast.error("Failed to generate dashboard.");
+        setToastId(id);
+      }
     }
   };
 
@@ -645,29 +673,36 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
 
     try {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
-    } catch (error) {
-      addAssistantMessage(
-        "Failed to generate dashboard. Please try again.",
-        null,
-      );
+    } catch (error: any) {
+      console.log("🔥 ERROR MESSAGE:", error?.message);
       setPendingQuery(null);
       setIsLoading(false);
-
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Failed to generate dashboard.");
-      setToastId(id);
-
       abortControllerRef.current = null;
       toastShownRef.current = null;
+
+      if (toastId) toast.dismiss(toastId);
+
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don’t have enough credits to generate dashboard.",
+        );
+        setToastId(id);
+      } else {
+        addAssistantMessage(
+          "Failed to generate dashboard. Please try again.",
+          null,
+        );
+
+        const id = toast.error("Failed to generate dashboard.");
+        setToastId(id);
+      }
     }
   };
 
   const handleRetry = async () => {
     // Mark that we're retrying to prevent refresh modal from showing
     isRetryingRef.current = true;
-    
+
     if (!storeLastQuery) return;
 
     if (storeSelectedFiles.length === 0) {
@@ -713,19 +748,29 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
 
     try {
       await fetchDashboardData(storeLastQuery, cleanFileNames);
-    } catch (error) {
-      addAssistantMessage("Retry failed. Please try again.", null);
+    } catch (error: any) {
+      console.log("🔥 ERROR MESSAGE:", error?.message);
       setPendingQuery(null);
       setIsLoading(false);
+      abortControllerRef.current = null;
+      toastShownRef.current = null;
 
-      if (toastId) {
-        toast.dismiss(toastId);
+      if (toastId) toast.dismiss(toastId);
+
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don’t have enough credits to generate dashboard.",
+        );
+        setToastId(id);
+      } else {
+        addAssistantMessage(
+          "Failed to generate dashboard. Please try again.",
+          null,
+        );
+
+        const id = toast.error("Failed to generate dashboard.");
+        setToastId(id);
       }
-      const id = toast.error("Retry failed.");
-      setToastId(id);
-    } finally {
-      // Mark that retry is done
-      isRetryingRef.current = false;
     }
   };
 
@@ -760,25 +805,24 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
     pendingRefreshRef.current = false;
   };
 
-  const handleRefreshWarningContinue = () => {
+  const handleRefreshWarningContinue = async () => {
     console.log("Refresh confirmed by user - allowing refresh");
     setShowRefreshWarning(false);
     pendingRefreshRef.current = false;
-    
-    // Explicitly stop any ongoing polling and clear persisted polling task
+
+    // Mark that after reload we should auto-start a new chat from sidebar
     try {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("adro_polling_task");
+        sessionStorage.setItem("adro_auto_new_chat", "true");
       }
     } catch {
       // Ignore storage errors
     }
 
-    clearPersistedSelectedFiles();
-    setStoreSelectedFiles([]);
-
-    // Navigate to main dashboard route instead of staying on the same page
-    router.push("/dashboard");
+    // Perform a full page refresh so the user sees a clean dashboard
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   // Process dashboard data to remove empty sections
@@ -980,7 +1024,9 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                 {storeSelectedFiles.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                     {storeSelectedFiles.map((fileId: string) => {
-                      const file = storeAvailableFiles.find((f: any) => f.id === fileId);
+                      const file = storeAvailableFiles.find(
+                        (f: any) => f.id === fileId,
+                      );
                       return (
                         <Badge
                           key={fileId}
@@ -1099,13 +1145,26 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                           // Check if ONLY content exists (no KPIs, charts, or table)
                           (() => {
                             const data = message.dashboardData;
-                            const hasKPIs = data.kpis && Array.isArray(data.kpis) && data.kpis.length > 0;
-                            const hasCharts = data.charts && Array.isArray(data.charts) && data.charts.length > 0;
-                            const hasTable = data.table && Array.isArray(data.table) && data.table.length > 0;
-                            const hasContent = data.content && typeof data.content === "string" && data.content.trim() !== "";
-                            
-                            const hasOnlyContent = hasContent && !hasKPIs && !hasCharts && !hasTable;
-                            
+                            const hasKPIs =
+                              data.kpis &&
+                              Array.isArray(data.kpis) &&
+                              data.kpis.length > 0;
+                            const hasCharts =
+                              data.charts &&
+                              Array.isArray(data.charts) &&
+                              data.charts.length > 0;
+                            const hasTable =
+                              data.table &&
+                              Array.isArray(data.table) &&
+                              data.table.length > 0;
+                            const hasContent =
+                              data.content &&
+                              typeof data.content === "string" &&
+                              data.content.trim() !== "";
+
+                            const hasOnlyContent =
+                              hasContent && !hasKPIs && !hasCharts && !hasTable;
+
                             if (hasOnlyContent) {
                               // Render ONLY the content without the DashboardCard
                               return (
@@ -1113,7 +1172,9 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                                   <ReactMarkdown
                                     components={{
                                       p: ({ children }) => (
-                                        <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                        <p className="mb-2 last:mb-0 text-md">
+                                          {children}
+                                        </p>
                                       ),
                                       strong: ({ children }) => (
                                         <strong className="font-bold text-gray-900">
@@ -1136,7 +1197,9 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                                       <ReactMarkdown
                                         components={{
                                           p: ({ children }) => (
-                                            <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                            <p className="mb-2 last:mb-0 text-md">
+                                              {children}
+                                            </p>
                                           ),
                                           strong: ({ children }) => (
                                             <strong className="font-bold text-gray-900">
@@ -1149,7 +1212,7 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                                       </ReactMarkdown>
                                     </div>
                                   )}
-                                  
+
                                   {/* Show DashboardCard below the content */}
                                   <div className="w-full">
                                     <DashboardCard
@@ -1193,7 +1256,9 @@ if (storeUploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
                               <ReactMarkdown
                                 components={{
                                   p: ({ children }) => (
-                                    <p className="mb-2 last:mb-0 text-md">{children}</p>
+                                    <p className="mb-2 last:mb-0 text-md">
+                                      {children}
+                                    </p>
                                   ),
                                   strong: ({ children }) => (
                                     <strong className="font-bold text-gray-900">

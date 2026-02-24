@@ -38,6 +38,30 @@ export const ChatSidebar = () => {
     }
   }, [fetchChatTitles]);
 
+  // Auto-click "New Chat" on load when requested (e.g. after refresh-continue)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const flagKey = "adro_auto_new_chat";
+    const shouldStartNewChat = sessionStorage.getItem(flagKey);
+
+    if (shouldStartNewChat === "true") {
+      // Clear the flag so it only runs once
+      sessionStorage.removeItem(flagKey);
+
+      // Defer the click slightly to ensure DOM is ready
+      setTimeout(() => {
+        const newChatButton = document.getElementById("new-chat-button");
+        if (newChatButton) {
+          newChatButton.click();
+        } else {
+          // Fallback: call the handler directly if element not found
+          handleNewChat();
+        }
+      }, 50);
+    }
+  }, []);
+
   const safeChatTitles = Array.isArray(chatTitles) ? chatTitles : [];
 
   const handleSelectChat = (chatId: string) => {
@@ -177,6 +201,7 @@ export const ChatSidebar = () => {
         {/* ===== NEW CHAT BUTTON ===== */}
         <div className="p-3">
           <button
+            id="new-chat-button"
             onClick={handleNewChat}
             className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm justify-center`}
             title="New Chat"
