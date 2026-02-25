@@ -1,16 +1,14 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
 import { Menu, Plus, MessageSquare, Trash2, Edit2, X, Check, Search } from "lucide-react";
 import { useChatStore } from "@/src/services/api/chat/chat-store";
+import { useDashboardStore } from "@/src/services/api/dashboard/dashboard-api-store"; // ADD THIS
 import { toast } from "sonner";
 import { useSidebarStore } from "@/src/services/api/chat/sidebar-store";
 
 export const ChatSidebar = () => {
-  // REPLACE this line:
-  // const [collapsed, setCollapsed] = useState(false);
-  
-  // WITH this:
   const { isCollapsed, toggleSidebar } = useSidebarStore();
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -46,16 +44,13 @@ export const ChatSidebar = () => {
     const shouldStartNewChat = sessionStorage.getItem(flagKey);
 
     if (shouldStartNewChat === "true") {
-      // Clear the flag so it only runs once
       sessionStorage.removeItem(flagKey);
 
-      // Defer the click slightly to ensure DOM is ready
       setTimeout(() => {
         const newChatButton = document.getElementById("new-chat-button");
         if (newChatButton) {
           newChatButton.click();
         } else {
-          // Fallback: call the handler directly if element not found
           handleNewChat();
         }
       }, 50);
@@ -66,6 +61,8 @@ export const ChatSidebar = () => {
 
   const handleSelectChat = (chatId: string) => {
     if (chatId) {
+      // NEW - Clear refresh loader flags when switching chats
+      useDashboardStore.getState().setRefreshLoaderMessageId(null, null);
       fetchChatHistory(chatId);
     }
   };
@@ -179,26 +176,24 @@ export const ChatSidebar = () => {
     <>
       <div
         className={`border-r transition-all duration-300 flex flex-col h-full bg-white ${
-          isCollapsed ? "w-16" : "w-72"  // CHANGED: collapsed to isCollapsed
+          isCollapsed ? "w-16" : "w-72"
         }`}
       >
-        {/* ===== HEADER ===== */}
         <div className="p-4 flex items-center gap-3 border-b">
           <button
-            onClick={toggleSidebar}  // CHANGED: setCollapsed(!collapsed) to toggleSidebar
+            onClick={toggleSidebar}
             className="p-2 rounded-md hover:bg-slate-100 transition"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}  // CHANGED: collapsed to isCollapsed
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <Menu className="w-5 h-5 text-slate-700" />
           </button>
-          {!isCollapsed && (  // CHANGED: collapsed to isCollapsed
+          {!isCollapsed && (
             <span className="font-semibold text-lg text-slate-800">
               Chat History
             </span>
           )}
         </div>
 
-        {/* ===== NEW CHAT BUTTON ===== */}
         <div className="p-3">
           <button
             id="new-chat-button"
@@ -207,14 +202,13 @@ export const ChatSidebar = () => {
             title="New Chat"
           >
             <Plus className="w-5 h-5 flex-shrink-0" />
-            {!isCollapsed && (  // CHANGED: collapsed to isCollapsed
+            {!isCollapsed && (
               <span className="text-sm font-medium">New Chat</span>
             )}
           </button>
         </div>
 
-        {/* ===== SEARCH BAR ===== */}
-        {!isCollapsed && (  // CHANGED: collapsed to isCollapsed
+        {!isCollapsed && (
           <>
             <div className="px-3 py-2">
               <div className="relative">
@@ -240,10 +234,8 @@ export const ChatSidebar = () => {
           </>
         )}
 
-        {/* ✅ Everything below is hidden when collapsed */}
-        {!isCollapsed && (  // CHANGED: collapsed to isCollapsed
+        {!isCollapsed && (
           <>
-            {/* CHAT LIST */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {isLoadingTitles ? (
                 <div className="flex justify-center py-4">
@@ -270,7 +262,6 @@ export const ChatSidebar = () => {
                     }`}
                   >
                     {editingChatId === chat?.chat_id ? (
-                      // RENAME MODE
                       <div className="flex items-center gap-1 px-2 py-1.5">
                         <input
                           type="text"
@@ -303,7 +294,6 @@ export const ChatSidebar = () => {
                         </button>
                       </div>
                     ) : (
-                      // NORMAL MODE
                       <>
                         <button
                           onClick={() => handleSelectChat(chat?.chat_id)}
@@ -365,7 +355,6 @@ export const ChatSidebar = () => {
               )}
             </div>
 
-            {/* FOOTER */}
             <div className="p-4 border-t text-xs text-slate-400">
               {filteredTitles.length} {filteredTitles.length === 1 ? "chat" : "chats"}
             </div>
@@ -373,7 +362,6 @@ export const ChatSidebar = () => {
         )}
       </div>
 
-      {/* ===== DELETE CONFIRMATION MODAL ===== */}
       {showDeleteModal && chatToDelete && (
         <>
           <div

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 import { url } from "../api-url";
-import { useChatStore } from "../chat/chat-store"; // ADD THIS IMPORT
+import { useChatStore } from "../chat/chat-store";
+import { restoreSelectedFiles } from "@/src/services/utils/file-selection-storage";
 
 interface LoginPayload {
   username: string;
@@ -92,12 +93,18 @@ export const useLoginStore = create<LoginState>((set, get) => ({
 
       // ✅ Initialize chat store after successful login
       setTimeout(() => {
+        // Restore selected files from sessionStorage first
+        const persistedSelected = restoreSelectedFiles();
+        
         if (isNewUser) {
           // Clear everything for new user
           useChatStore.getState().setSelectedFiles([]);
           useChatStore.getState().initializeOnLogin();
         } else {
-          // For existing user, keep selectedFiles and restore from localStorage
+          // For existing user, restore selected files from sessionStorage
+          if (persistedSelected.length > 0) {
+            useChatStore.getState().setSelectedFiles(persistedSelected);
+          }
           useChatStore.getState().initializeOnLogin();
         }
       }, 100);
@@ -116,8 +123,12 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       localStorage.removeItem("user_email");
       localStorage.removeItem("token_type");
       localStorage.removeItem("lastLoginEmail"); // Clear tracking email
+      localStorage.removeItem("adro_last_query"); // Clear last query
       
-      // ✅ ADD THIS - Clean up chat store on logout
+      // DON'T clear selected files from sessionStorage on logout
+      // We want to preserve them for next login
+      
+      // Clean up chat store
       useChatStore.getState().cleanupOnLogout();
     }
 

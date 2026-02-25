@@ -43,3 +43,15 @@ export const clearPersistedSelectedFiles = (): void => {
     console.error("Failed to clear persisted selected files:", error);
   }
 };
+
+/**
+ * Check if there are any persisted selected files
+ */
+export const hasPersistedSelectedFiles = (): boolean => {
+  if (typeof sessionStorage === "undefined") return false;
+  try {
+    return sessionStorage.getItem(FILE_SELECTION_STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+};

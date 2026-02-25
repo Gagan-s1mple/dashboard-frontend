@@ -146,14 +146,7 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-
-        // 🔥 Exact backend match
-        if (errorData?.detail === "Insufficient credits") {
-          throw new Error("INSUFFICIENT_CREDITS");
-        }
-
-        throw new Error(errorData?.detail || "Something went wrong");
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const responseData = await response.json();
@@ -185,11 +178,9 @@ export class DashboardAPI {
       }
 
       // Log detailed KPI info
-
       kpis.forEach((kpi: KPI, index: number) => {});
 
       // Log detailed chart info
-
       charts.forEach((chart: ChartOption, index: number) => {});
 
       // Log content and table if present
@@ -310,20 +301,6 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
-        let responseData: any = null;
-
-        try {
-          responseData = await response.json();
-        } catch {
-          responseData = null;
-        }
-
-        const backendMessage =
-          responseData?.detail || responseData?.message || "";
-
-        if (backendMessage.toLowerCase().includes("credit")) {
-          throw new Error("INSUFFICIENT_CREDITS");
-        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -361,6 +338,11 @@ interface DashboardState {
   currentChatId: string; // Changed to string
   currentMessageId: string; // Changed to string
   chatHistory: ChatMessage[];
+  isResumingFromRefresh: boolean; // NEW - Track if resuming after refresh
+  resumingMessageId: string | null; // NEW - Track which message is resuming
+  resumingChatId: string | null; // NEW - Track which chat is resuming
+  refreshLoaderMessageId: string | null; // NEW - Track which message shows loader on refresh
+  refreshLoaderChatId: string | null; // NEW - Track which chat shows loader on refresh
   fetchDashboardData: (
     query: string,
     file_name: string,
@@ -381,6 +363,7 @@ interface DashboardState {
   getCurrentFiles: () => string[];
   setCurrentQueryAndFiles: (query: string, files: string[]) => void;
   setChatInfo: (chatId: string, messageId: string) => void;
+  setRefreshLoaderMessageId: (messageId: string | null, chatId: string | null) => void; // NEW
 }
 
 const INITIAL_DASHBOARD_DATA: DashboardBackendResponse = {
@@ -404,11 +387,24 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   currentChatId: "1", // Start with chat_id = "1" as string
   currentMessageId: "0", // Start with message_id = "0" as string
   chatHistory: [],
+  isResumingFromRefresh: false, // NEW
+  resumingMessageId: null, // NEW
+  resumingChatId: null, // NEW
+  refreshLoaderMessageId: null, // NEW
+  refreshLoaderChatId: null, // NEW
 
   setChatInfo: (chatId: string, messageId: string) => {
     set({ currentChatId: chatId, currentMessageId: messageId });
     dashboardAPI.setChatId(chatId);
     dashboardAPI.setMessageId(messageId);
+  },
+
+  setRefreshLoaderMessageId: (messageId: string | null, chatId: string | null) => {
+    set({ 
+      refreshLoaderMessageId: messageId,
+      refreshLoaderChatId: chatId, 
+      polling:true
+    });
   },
 
   fetchDashboardData: async (
@@ -464,7 +460,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       if (typeof localStorage !== "undefined") {
         localStorage.setItem(
           "adro_polling_task",
-          JSON.stringify({ taskId: task_id, chatId, messageId: messageIdUsed }),
+          JSON.stringify({ taskId: task_id, chatId, messageId: messageIdUsed })
         );
       }
 
@@ -473,10 +469,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Step 3: Start polling for this task (pass messageId used for task creation)
       get().pollTaskStatus(task_id, messageIdUsed);
-    } catch (error:any) {
-      if (error.message === "INSUFFICIENT_CREDITS") {
-        throw error;
-      }
+    } catch (error) {
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem("adro_polling_task");
       }
@@ -487,7 +480,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         polling: false,
         currentTaskId: null,
       });
-      throw error;
     }
   },
 
@@ -527,6 +519,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 loading: false,
                 polling: false,
                 currentTaskId: null,
+                isResumingFromRefresh: false, // NEW - Clear flag
+                resumingMessageId: null, // NEW
+                resumingChatId: null, // NEW
+                refreshLoaderMessageId: null, // NEW - Clear refresh loader
+                refreshLoaderChatId: null, // NEW
               });
             } else {
               set({
@@ -535,6 +532,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
                 loading: false,
                 polling: false,
                 currentTaskId: null,
+                isResumingFromRefresh: false, // NEW
+                resumingMessageId: null, // NEW
+                resumingChatId: null, // NEW
+                refreshLoaderMessageId: null, // NEW - Clear refresh loader
+                refreshLoaderChatId: null, // NEW
               });
             }
             break;
@@ -550,6 +552,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
               loading: false,
               polling: false,
               currentTaskId: null,
+              isResumingFromRefresh: false, // NEW
+              resumingMessageId: null, // NEW
+              resumingChatId: null, // NEW
+              refreshLoaderMessageId: null, // NEW - Clear refresh loader
+              refreshLoaderChatId: null, // NEW
             });
             break;
           }
@@ -630,6 +637,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       loading: false,
       polling: false,
       currentTaskId: null,
+      refreshLoaderMessageId: null, // NEW - Clear refresh loader
+      refreshLoaderChatId: null, // NEW
     });
 
     // Clear cache
@@ -656,11 +665,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         currentMessageId: lastMessage.id,
         dashboardData: lastMessage.response || INITIAL_DASHBOARD_DATA,
         hasData: !!lastMessage.response,
+        refreshLoaderMessageId: null, // NEW - Clear refresh loader when switching chats
+        refreshLoaderChatId: null, // NEW
       });
 
       // Also load in chat store
       useChatStore.getState().fetchChatHistory(chatId);
-    } else {
     }
   },
 
@@ -684,6 +694,11 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       polling: false,
       currentTaskId: null,
       loading: false,
+      isResumingFromRefresh: false, // NEW
+      resumingMessageId: null, // NEW
+      resumingChatId: null, // NEW
+      refreshLoaderMessageId: null, // NEW - Clear refresh loader
+      refreshLoaderChatId: null, // NEW
     });
   },
 
@@ -692,13 +707,29 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     try {
       const stored = localStorage.getItem("adro_polling_task");
       if (!stored) return;
+      
       const { taskId, chatId, messageId } = JSON.parse(stored);
       if (!taskId || !chatId) return;
+      
       // Restore chat context
       dashboardAPI.setChatId(chatId);
       dashboardAPI.setMessageId(messageId || "0");
-      set({ currentChatId: chatId, currentMessageId: messageId || "0" });
-      set({ currentTaskId: taskId, polling: true, loading: false });
+      
+      // NEW - Mark that we're resuming from refresh and set which message shows loader
+      set({ 
+        currentChatId: chatId, 
+        currentMessageId: messageId || "0",
+        currentTaskId: taskId, 
+        polling: true, 
+        loading: false,
+        isResumingFromRefresh: true, // NEW - Set flag
+        resumingMessageId: messageId, // NEW - Track which message
+        resumingChatId: chatId, // NEW - Track which chat
+        refreshLoaderMessageId: messageId, // NEW - Store which message shows loader on refresh
+        refreshLoaderChatId: chatId, // NEW - Store which chat shows loader on refresh
+      });
+      
+      console.log("🔄 Resuming polling after refresh for chat:", chatId, "message:", messageId);
       get().pollTaskStatus(taskId, messageId);
     } catch {
       localStorage.removeItem("adro_polling_task");
@@ -712,6 +743,8 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
       loading: false,
       polling: false,
       currentTaskId: null,
+      refreshLoaderMessageId: null, // NEW - Clear refresh loader
+      refreshLoaderChatId: null, // NEW
     });
   },
 }));

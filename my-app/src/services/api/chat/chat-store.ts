@@ -844,8 +844,7 @@ export const useChatStore = create<ChatStore>()(
         uploadedFiles: state.uploadedFiles,
         availableFiles: state.availableFiles,
         inputValue: state.inputValue,
-        // Do NOT persist lastQuery - we don't want the last query
-        // to be restored after refresh; only file selections should persist
+        lastQuery: state.lastQuery,
       }),
     },
   ),
