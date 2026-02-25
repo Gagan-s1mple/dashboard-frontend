@@ -631,23 +631,31 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
     try {
       await fetchDashboardData(queryText.trim(), cleanFileNames);
-    } catch (error) {
-      addAssistantMessage(
-        "Failed to generate dashboard. Please try again.",
-        null,
-      );
-      setPendingQuery(null);
-      setIsLoading(false);
+    } catch (error: any) {
 
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Failed to generate dashboard.");
-      setToastId(id);
+  setPendingQuery(null);
+  setIsLoading(false);
+  abortControllerRef.current = null;
+  toastShownRef.current = null;
 
-      abortControllerRef.current = null;
-      toastShownRef.current = null;
-    }
+  if (toastId) toast.dismiss(toastId);
+
+  //  Credit insuffieciency
+  if (error?.message === "INSUFFICIENT_CREDITS") {
+    const id = toast.error(
+      "You don’t have enough credits to generate dashboard."
+    );
+    setToastId(id);
+    return; 
+  }
+  addAssistantMessage(
+    "Failed to generate dashboard. Please try again.",
+    null,
+  );
+
+  const id = toast.error("Failed to generate dashboard.");
+  setToastId(id);
+}
   };
 
   const handleSendMessage = async () => {
@@ -689,23 +697,32 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
     try {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
-    } catch (error) {
-      addAssistantMessage(
-        "Failed to generate dashboard. Please try again.",
-        null,
-      );
-      setPendingQuery(null);
-      setIsLoading(false);
+    }catch (error: any) {
 
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Failed to generate dashboard.");
-      setToastId(id);
+  setPendingQuery(null);
+  setIsLoading(false);
+  abortControllerRef.current = null;
+  toastShownRef.current = null;
 
-      abortControllerRef.current = null;
-      toastShownRef.current = null;
-    }
+  if (toastId) toast.dismiss(toastId);
+
+  //  Credit insuffieciency
+  if (error?.message === "INSUFFICIENT_CREDITS") {
+    const id = toast.error(
+      "You don’t have enough credits to generate dashboard."
+    );
+    setToastId(id);
+    return; 
+  }
+
+  addAssistantMessage(
+    "Failed to generate dashboard. Please try again.",
+    null,
+  );
+
+  const id = toast.error("Failed to generate dashboard.");
+  setToastId(id);
+}
   };
 
   const handleRetry = async () => {
@@ -744,17 +761,31 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
     try {
       await fetchDashboardData(lastQuery, cleanFileNames);
-    } catch (error) {
-      addAssistantMessage("Retry failed. Please try again.", null);
-      setPendingQuery(null);
-      setIsLoading(false);
+    } catch (error: any) {
 
-      if (toastId) {
-        toast.dismiss(toastId);
-      }
-      const id = toast.error("Retry failed.");
-      setToastId(id);
-    }
+  setPendingQuery(null);
+  setIsLoading(false);
+  abortControllerRef.current = null;
+  toastShownRef.current = null;
+
+  if (toastId) toast.dismiss(toastId);
+
+  // Credit insuffiency
+  if (error?.message === "INSUFFICIENT_CREDITS") {
+    const id = toast.error(
+      "You don't have enough credits to generate dashboard."
+    );
+    setToastId(id);
+    return; 
+  }
+  addAssistantMessage(
+    "Failed to generate dashboard. Please try again.",
+    null,
+  );
+
+  const id = toast.error("Failed to generate dashboard.");
+  setToastId(id);
+}
   };
 
   const copyToClipboard = (text: string, messageId: string) => {

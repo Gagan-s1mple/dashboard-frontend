@@ -301,8 +301,25 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  let responseData: any = null;
+
+  try {
+    responseData = await response.json();
+  } catch {
+    responseData = null;
+  }
+
+  const backendMessage =
+    responseData?.detail ||
+    responseData?.message ||
+    "";
+
+  if (backendMessage.toLowerCase().includes("credit")) {
+    throw new Error("INSUFFICIENT_CREDITS");
+  }
+
+  throw new Error(backendMessage || `HTTP ${response.status}`);
+}
 
       const responseData = await response.json();
 
@@ -469,18 +486,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Step 3: Start polling for this task (pass messageId used for task creation)
       get().pollTaskStatus(task_id, messageIdUsed);
-    } catch (error) {
-      if (typeof localStorage !== "undefined") {
-        localStorage.removeItem("adro_polling_task");
-      }
-      set({
-        dashboardData: INITIAL_DASHBOARD_DATA,
-        hasData: false,
-        loading: false,
-        polling: false,
-        currentTaskId: null,
-      });
-    }
+    }catch (error: any) {
+  set({
+    dashboardData: INITIAL_DASHBOARD_DATA,
+    hasData: false,
+    loading: false,
+    polling: false,
+    currentTaskId: null,
+  });
+
+  throw error; 
+}
   },
 
   pollTaskStatus: async (taskId: string, messageIdOverride?: string) => {
