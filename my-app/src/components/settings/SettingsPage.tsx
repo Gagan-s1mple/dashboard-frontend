@@ -119,7 +119,7 @@ const purchaseCredits = async () => {
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
         body: JSON.stringify({
-          credits,
+          credits:parseInt(credits,10),
           // user_id: "current_user_id",
           currency: localStorage.getItem("currency"),
         }),
@@ -545,10 +545,20 @@ const handleCleanSubmit = () => {
 
   {/* Credits Selector */}
   <div className="flex items-center justify-center">
+   
     <Input
   type="number"
+  step="1"
+  min="1"
   value={credits}
-  onChange={(e) => setCredits(e.target.value)}
+  onChange={(e) => {
+    const value = e.target.value;
+
+    // Allow only integers
+    if (/^\d*$/.test(value)) {
+      setCredits(value);
+    }
+  }}
   className="
         text-center
         border border-blue-600
