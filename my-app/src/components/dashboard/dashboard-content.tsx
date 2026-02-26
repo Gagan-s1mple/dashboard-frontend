@@ -483,8 +483,21 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       return;
     }
 
-    try {
-      const newFiles = await uploadFiles(userEmail, fileArray);
+  
+      try {
+  const existingFileNames = uploadedFiles.map(file => file.name);
+  const filteredFiles = fileArray.filter(
+    file => !existingFileNames.includes(file.name)
+  );
+  if (filteredFiles.length !== fileArray.length) {
+    toast.error("Duplicate files not allowed");
+  }
+  if (filteredFiles.length === 0) {
+    return;
+  }
+  const newFiles = await uploadFiles(userEmail, filteredFiles);
+
+
 
       const updatedFiles = [...uploadedFiles, ...newFiles];
       setUploadedFiles(updatedFiles);
