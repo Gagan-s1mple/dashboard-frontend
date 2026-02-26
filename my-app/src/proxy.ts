@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const fastapi_path = "http://34.233.120.188:8000";
+const fastapi_path = "https://54-85-180-205.sslip.io";
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
