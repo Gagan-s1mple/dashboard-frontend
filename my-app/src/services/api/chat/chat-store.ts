@@ -84,7 +84,7 @@ class ChatHistoryAPI {
         return [];
       }
 
-      
+
 
       const response = await fetch(
         `${this.baseUrl}/api/history?chat_id=${chatId}`,
@@ -100,7 +100,7 @@ class ChatHistoryAPI {
       // ("📥 Response status:", response.status);
 
       if (!response.ok) {
-      
+
         return [];
       }
 
@@ -115,7 +115,7 @@ class ChatHistoryAPI {
       } else if (data && data.messages && Array.isArray(data.messages)) {
         return data.messages;
       } else {
-       
+
         return [];
       }
     } catch (error) {
@@ -334,7 +334,7 @@ export const useChatStore = create<ChatStore>()(
             isLoadingTitles: false,
           });
         } catch (error) {
-         
+
           set({
             chatTitles: [],
             isLoadingTitles: false,
@@ -384,7 +384,7 @@ export const useChatStore = create<ChatStore>()(
        */
       fetchChatHistory: async (chatId: string) => {
         if (!chatId) {
-          
+
           return;
         }
 
@@ -476,7 +476,7 @@ export const useChatStore = create<ChatStore>()(
           //   `✅ Loaded chat ${chatId} with ${messages.length} messages, message ID: ${currentMessageId}`,
           // );
         } catch (error) {
-          
+
           set({ isLoadingHistory: false });
         }
       },
@@ -507,7 +507,7 @@ export const useChatStore = create<ChatStore>()(
       deleteChat: async (chatId: string) => {
         if (!chatId) return;
 
-   
+
 
         const { currentChatId } = get();
         const wasCurrentChat = currentChatId === chatId;
@@ -518,7 +518,7 @@ export const useChatStore = create<ChatStore>()(
         });
 
         if (response.success) {
-      
+
 
           // ✅ Only update UI AFTER API confirms success
           set((state) => {
@@ -611,7 +611,7 @@ export const useChatStore = create<ChatStore>()(
             };
           }
         } catch (error) {
-  
+
           // No UI change — return error for toast
           return {
             success: false,
@@ -633,7 +633,7 @@ export const useChatStore = create<ChatStore>()(
         } = get();
 
         if (!currentChatId) {
-          
+
           return;
         }
 
@@ -726,7 +726,7 @@ export const useChatStore = create<ChatStore>()(
         const { currentChatId, currentChatMessages, currentMessageId } = get();
 
         if (!currentChatId) {
-     
+
           return;
         }
 

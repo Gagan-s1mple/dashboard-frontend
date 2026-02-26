@@ -115,6 +115,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const [hasShownNoFileToast, setHasShownNoFileToast] = useState(false);
   const [toastId, setToastId] = useState<string | number | null>(null);
+  // Track which chatId this component instance is currently loading for
+  const [loadingChatId, setLoadingChatId] = useState<string | null>(null);
 
   const { uploadFiles, deleteFileByName } = useFileOperations();
 
@@ -146,6 +148,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     selectedFiles: storeSelectedFiles,
     uploadedFiles: storeUploadedFiles,
     availableFiles: storeAvailableFiles,
+    // activeChatId tracks which chat the user is CURRENTLY VIEWING (updates on every sidebar click)
+    currentChatId: activeChatId,
   } = useChatStore();
 
   const MAX_FILES_PER_SESSION = 5;
@@ -201,10 +205,11 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   };
 
-  // Load files and resume polling (if user refreshed during a query) on mount
+  // Load files on mount
+  // resumePollingIfNeeded is commented out to prevent showing loader on chat switch/return
   useEffect(() => {
     loadInitialFiles();
-    resumePollingIfNeeded();
+    // resumePollingIfNeeded(); // Commented out: causes loader to appear in all chats after refresh
   }, []);
 
   // ===== ENSURE SELECTED FILES REMAIN VALID AFTER FILES LOAD =====
@@ -229,7 +234,8 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     }
   }, [availableFiles]);
 
-  // ===== CHAT STORE SYNC =====
+
+
   useEffect(() => {
     if (currentChatMessages && currentChatMessages.length > 0) {
       const convertedMessages: Message[] = currentChatMessages.map((msg) => {
@@ -474,6 +480,35 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       return;
     }
     const fileArray = Array.from(files);
+
+    // Block PDF files and any non-Excel/CSV files
+    const ALLOWED_EXTENSIONS = [".xlsx", ".xls", ".csv"];
+    const invalidFiles = fileArray.filter((file) => {
+      const lowerName = file.name.toLowerCase();
+      return !ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+    });
+    if (invalidFiles.length > 0) {
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.error(
+        `Only Excel (.xlsx, .xls) and CSV files are allowed. Rejected: ${invalidFiles.map(f => f.name).join(", ")}`,
+      );
+      setToastId(id);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Check file size — max 200 MB per file
+    const oversizedFiles = fileArray.filter((file) => file.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      if (toastId) toast.dismiss(toastId);
+      const id = toast.error(
+        `File size must be 200 MB or less. Too large: ${oversizedFiles.map(f => f.name).join(", ")}`,
+      );
+      setToastId(id);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     if (uploadedFiles.length + fileArray.length > MAX_FILES_PER_SESSION) {
       if (toastId) toast.dismiss(toastId);
       const id = toast.error(
@@ -483,19 +518,18 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       return;
     }
 
-  
-      try {
-  const existingFileNames = uploadedFiles.map(file => file.name);
-  const filteredFiles = fileArray.filter(
-    file => !existingFileNames.includes(file.name)
-  );
-  if (filteredFiles.length !== fileArray.length) {
-    toast.error("Duplicate files not allowed");
-  }
-  if (filteredFiles.length === 0) {
-    return;
-  }
-  const newFiles = await uploadFiles(userEmail, filteredFiles);
+    try {
+      const existingFileNames = uploadedFiles.map(file => file.name);
+      const filteredFiles = fileArray.filter(
+        file => !existingFileNames.includes(file.name)
+      );
+      if (filteredFiles.length !== fileArray.length) {
+        toast.error("Duplicate files not allowed");
+      }
+      if (filteredFiles.length === 0) {
+        return;
+      }
+      const newFiles = await uploadFiles(userEmail, filteredFiles);
 
 
 
@@ -634,6 +668,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     setLastQuery(queryText.trim());
     setPendingQuery(queryText.trim());
     setIsLoading(true);
+    setLoadingChatId(currentChatId); // Track which chat is loading
     setInputValue("");
 
     abortControllerRef.current = new AbortController();
@@ -646,29 +681,29 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       await fetchDashboardData(queryText.trim(), cleanFileNames);
     } catch (error: any) {
 
-  setPendingQuery(null);
-  setIsLoading(false);
-  abortControllerRef.current = null;
-  toastShownRef.current = null;
+      setPendingQuery(null);
+      setIsLoading(false);
+      abortControllerRef.current = null;
+      toastShownRef.current = null;
 
-  if (toastId) toast.dismiss(toastId);
+      if (toastId) toast.dismiss(toastId);
 
-  //  Credit insuffieciency
-  if (error?.message === "INSUFFICIENT_CREDITS") {
-    const id = toast.error(
-      "You don’t have enough credits to generate dashboard."
-    );
-    setToastId(id);
-    return; 
-  }
-  addAssistantMessage(
-    "Failed to generate dashboard. Please try again.",
-    null,
-  );
+      //  Credit insuffieciency
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don’t have enough credits to generate dashboard."
+        );
+        setToastId(id);
+        return;
+      }
+      addAssistantMessage(
+        "Failed to generate dashboard. Please try again.",
+        null,
+      );
 
-  const id = toast.error("Failed to generate dashboard.");
-  setToastId(id);
-}
+      const id = toast.error("Failed to generate dashboard.");
+      setToastId(id);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -700,6 +735,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
     setLastQuery(inputValue.trim());
     setPendingQuery(inputValue.trim());
     setIsLoading(true);
+    setLoadingChatId(activeChatId); // Track the currently VIEWED chat (from useChatStore, updates on sidebar click)
     setInputValue("");
 
     abortControllerRef.current = new AbortController();
@@ -710,32 +746,32 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
 
     try {
       await fetchDashboardData(inputValue.trim(), cleanFileNames);
-    }catch (error: any) {
+    } catch (error: any) {
 
-  setPendingQuery(null);
-  setIsLoading(false);
-  abortControllerRef.current = null;
-  toastShownRef.current = null;
+      setPendingQuery(null);
+      setIsLoading(false);
+      abortControllerRef.current = null;
+      toastShownRef.current = null;
 
-  if (toastId) toast.dismiss(toastId);
+      if (toastId) toast.dismiss(toastId);
 
-  //  Credit insuffieciency
-  if (error?.message === "INSUFFICIENT_CREDITS") {
-    const id = toast.error(
-      "You don’t have enough credits to generate dashboard."
-    );
-    setToastId(id);
-    return; 
-  }
+      //  Credit insuffieciency
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don’t have enough credits to generate dashboard."
+        );
+        setToastId(id);
+        return;
+      }
 
-  addAssistantMessage(
-    "Failed to generate dashboard. Please try again.",
-    null,
-  );
+      addAssistantMessage(
+        "Failed to generate dashboard. Please try again.",
+        null,
+      );
 
-  const id = toast.error("Failed to generate dashboard.");
-  setToastId(id);
-}
+      const id = toast.error("Failed to generate dashboard.");
+      setToastId(id);
+    }
   };
 
   const handleRetry = async () => {
@@ -776,29 +812,29 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       await fetchDashboardData(lastQuery, cleanFileNames);
     } catch (error: any) {
 
-  setPendingQuery(null);
-  setIsLoading(false);
-  abortControllerRef.current = null;
-  toastShownRef.current = null;
+      setPendingQuery(null);
+      setIsLoading(false);
+      abortControllerRef.current = null;
+      toastShownRef.current = null;
 
-  if (toastId) toast.dismiss(toastId);
+      if (toastId) toast.dismiss(toastId);
 
-  // Credit insuffiency
-  if (error?.message === "INSUFFICIENT_CREDITS") {
-    const id = toast.error(
-      "You don't have enough credits to generate dashboard."
-    );
-    setToastId(id);
-    return; 
-  }
-  addAssistantMessage(
-    "Failed to generate dashboard. Please try again.",
-    null,
-  );
+      // Credit insuffiency
+      if (error?.message === "INSUFFICIENT_CREDITS") {
+        const id = toast.error(
+          "You don't have enough credits to generate dashboard."
+        );
+        setToastId(id);
+        return;
+      }
+      addAssistantMessage(
+        "Failed to generate dashboard. Please try again.",
+        null,
+      );
 
-  const id = toast.error("Failed to generate dashboard.");
-  setToastId(id);
-}
+      const id = toast.error("Failed to generate dashboard.");
+      setToastId(id);
+    }
   };
 
   const copyToClipboard = (text: string, messageId: string) => {
@@ -875,448 +911,446 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".xlsx,.xls,.csv,.json"
+        accept=".xlsx,.xls,.csv"
         onChange={handleFileUpload}
         className="hidden"
         multiple
       />
 
       {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-white via-blue-50/30 to-white">
-            <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-6">
-              <div className="mb-8 w-20 h-20 relative">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 200 200"
-                  width="100%"
-                  height="100%"
-                  className="w-full h-full"
-                >
-                  <g clipPath="url(#cs_clip_1_ellipse-12)">
-                    <mask
-                      id="cs_mask_1_ellipse-12"
-                      style={{ maskType: "alpha" }}
-                      width="200"
-                      height="200"
-                      x="0"
-                      y="0"
-                      maskUnits="userSpaceOnUse"
-                    >
-                      <path
-                        fill="#fff"
-                        fillRule="evenodd"
-                        d="M100 150c27.614 0 50-22.386 50-50s-22.386-50-50-50-50 22.386-50 50 22.386 50 50 50zm0 50c55.228 0 100-44.772 100-100S155.228 0 100 0 0 44.772 0 100s44.772 100 100 100z"
-                        clipRule="evenodd"
-                      ></path>
-                    </mask>
-                    <g mask="url(#cs_mask_1_ellipse-12)">
-                      <path fill="#fff" d="M200 0H0v200h200V0z"></path>
-                      <path
-                        fill="#0066FF"
-                        fillOpacity="0.33"
-                        d="M200 0H0v200h200V0z"
-                      ></path>
-                      <g
-                        filter="url(#filter0_f_844_2811)"
-                        className="animate-gradient"
-                      >
-                        <path fill="#0066FF" d="M110 32H18v68h92V32z"></path>
-                        <path fill="#0044FF" d="M188-24H15v98h173v-98z"></path>
-                        <path fill="#0099FF" d="M175 70H5v156h170V70z"></path>
-                        <path fill="#00CCFF" d="M230 51H100v103h130V51z"></path>
-                      </g>
-                    </g>
-                  </g>
-                  <defs>
-                    <filter
-                      id="filter0_f_844_2811"
-                      width="385"
-                      height="410"
-                      x="-75"
-                      y="-104"
-                      colorInterpolationFilters="sRGB"
-                      filterUnits="userSpaceOnUse"
-                    >
-                      <feFlood
-                        floodOpacity="0"
-                        result="BackgroundImageFix"
-                      ></feFlood>
-                      <feBlend
-                        in="SourceGraphic"
-                        in2="BackgroundImageFix"
-                        result="shape"
-                      ></feBlend>
-                      <feGaussianBlur
-                        result="effect1_foregroundBlur_844_2811"
-                        stdDeviation="40"
-                      ></feGaussianBlur>
-                    </filter>
-                    <clipPath id="cs_clip_1_ellipse-12">
-                      <path fill="#fff" d="M0 0H200V200H0z"></path>
-                    </clipPath>
-                  </defs>
-                  <g
-                    style={{ mixBlendMode: "overlay" }}
-                    mask="url(#cs_mask_1_ellipse-12)"
+        <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-white via-blue-50/30 to-white">
+          <div className="w-full max-w-4xl mx-auto flex flex-col items-center px-6">
+            <div className="mb-8 w-20 h-20 relative">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 200 200"
+                width="100%"
+                height="100%"
+                className="w-full h-full"
+              >
+                <g clipPath="url(#cs_clip_1_ellipse-12)">
+                  <mask
+                    id="cs_mask_1_ellipse-12"
+                    style={{ maskType: "alpha" }}
+                    width="200"
+                    height="200"
+                    x="0"
+                    y="0"
+                    maskUnits="userSpaceOnUse"
                   >
                     <path
-                      fill="gray"
-                      stroke="transparent"
-                      d="M200 0H0v200h200V0z"
-                      filter="url(#cs_noise_1_ellipse-12)"
+                      fill="#fff"
+                      fillRule="evenodd"
+                      d="M100 150c27.614 0 50-22.386 50-50s-22.386-50-50-50-50 22.386-50 50 22.386 50 50 50zm0 50c55.228 0 100-44.772 100-100S155.228 0 100 0 0 44.772 0 100s44.772 100 100 100z"
+                      clipRule="evenodd"
                     ></path>
-                  </g>
-                  <defs>
-                    <filter
-                      id="cs_noise_1_ellipse-12"
-                      width="100%"
-                      height="100%"
-                      x="0%"
-                      y="0%"
-                      filterUnits="objectBoundingBox"
+                  </mask>
+                  <g mask="url(#cs_mask_1_ellipse-12)">
+                    <path fill="#fff" d="M200 0H0v200h200V0z"></path>
+                    <path
+                      fill="#0066FF"
+                      fillOpacity="0.33"
+                      d="M200 0H0v200h200V0z"
+                    ></path>
+                    <g
+                      filter="url(#filter0_f_844_2811)"
+                      className="animate-gradient"
                     >
-                      <feTurbulence
-                        baseFrequency="0.6"
-                        numOctaves="5"
-                        result="out1"
-                        seed="4"
-                      ></feTurbulence>
-                      <feComposite
-                        in="out1"
-                        in2="SourceGraphic"
-                        operator="in"
-                        result="out2"
-                      ></feComposite>
-                      <feBlend
-                        in="SourceGraphic"
-                        in2="out2"
-                        mode="overlay"
-                        result="out3"
-                      ></feBlend>
-                    </filter>
-                  </defs>
-                </svg>
-              </div>
-
-              <div className="mb-10 text-center">
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col items-center"
+                      <path fill="#0066FF" d="M110 32H18v68h92V32z"></path>
+                      <path fill="#0044FF" d="M188-24H15v98h173v-98z"></path>
+                      <path fill="#0099FF" d="M175 70H5v156h170V70z"></path>
+                      <path fill="#00CCFF" d="M230 51H100v103h130V51z"></path>
+                    </g>
+                  </g>
+                </g>
+                <defs>
+                  <filter
+                    id="filter0_f_844_2811"
+                    width="385"
+                    height="410"
+                    x="-75"
+                    y="-104"
+                    colorInterpolationFilters="sRGB"
+                    filterUnits="userSpaceOnUse"
+                  >
+                    <feFlood
+                      floodOpacity="0"
+                      result="BackgroundImageFix"
+                    ></feFlood>
+                    <feBlend
+                      in="SourceGraphic"
+                      in2="BackgroundImageFix"
+                      result="shape"
+                    ></feBlend>
+                    <feGaussianBlur
+                      result="effect1_foregroundBlur_844_2811"
+                      stdDeviation="40"
+                    ></feGaussianBlur>
+                  </filter>
+                  <clipPath id="cs_clip_1_ellipse-12">
+                    <path fill="#fff" d="M0 0H200V200H0z"></path>
+                  </clipPath>
+                </defs>
+                <g
+                  style={{ mixBlendMode: "overlay" }}
+                  mask="url(#cs_mask_1_ellipse-12)"
                 >
-                  <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400 mb-2">
-                    Adro is here to assist you
-                  </h1>
-                  <p className="text-gray-500 max-w-md">
-                    Ask me anything or try one of the suggestions below
-                  </p>
-                </motion.div>
+                  <path
+                    fill="gray"
+                    stroke="transparent"
+                    d="M200 0H0v200h200V0z"
+                    filter="url(#cs_noise_1_ellipse-12)"
+                  ></path>
+                </g>
+                <defs>
+                  <filter
+                    id="cs_noise_1_ellipse-12"
+                    width="100%"
+                    height="100%"
+                    x="0%"
+                    y="0%"
+                    filterUnits="objectBoundingBox"
+                  >
+                    <feTurbulence
+                      baseFrequency="0.6"
+                      numOctaves="5"
+                      result="out1"
+                      seed="4"
+                    ></feTurbulence>
+                    <feComposite
+                      in="out1"
+                      in2="SourceGraphic"
+                      operator="in"
+                      result="out2"
+                    ></feComposite>
+                    <feBlend
+                      in="SourceGraphic"
+                      in2="out2"
+                      mode="overlay"
+                      result="out3"
+                    ></feBlend>
+                  </filter>
+                </defs>
+              </svg>
+            </div>
+
+            <div className="mb-10 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center"
+              >
+                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400 mb-2">
+                  Adro is here to assist you
+                </h1>
+                <p className="text-gray-500 max-w-md">
+                  Ask me anything or try one of the suggestions below
+                </p>
+              </motion.div>
+            </div>
+
+            <div className="w-full bg-white border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
+              <div className="p-4 pb-0 relative">
+                <Textarea
+                  placeholder="Ask me anything..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  className="w-full text-gray-700 bg-transparent text-base outline-none placeholder:text-gray-400 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none"
+                  rows={3}
+                />
               </div>
 
-              <div className="w-full bg-white border border-white/20 rounded-2xl shadow-2xl overflow-hidden mb-4">
-                <div className="p-4 pb-0 relative">
-                  <Textarea
-                    placeholder="Ask me anything..."
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="w-full text-gray-700 bg-transparent text-base outline-none placeholder:text-gray-400 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none"
-                    rows={3}
-                  />
-                </div>
+              <div className="px-4 py-3 flex items-center gap-3 border-t border-white/30">
+                <Button
+                  onClick={() => setShowFileDialog(true)}
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg flex-shrink-0"
+                  title="Attach files"
+                >
+                  <Plus className="w-5 h-5" />
+                </Button>
 
-                <div className="px-4 py-3 flex items-center gap-3 border-t border-white/30">
+                {selectedFiles.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                    {selectedFiles.map((fileId) => {
+                      const file = availableFiles.find(
+                        (f) => f.id === fileId,
+                      );
+                      return (
+                        <Badge
+                          key={fileId}
+                          variant="secondary"
+                          className="flex items-center gap-2 py-1 px-2 bg-gray-50/70 border border-gray-200/50 flex-shrink-0"
+                        >
+                          <span className="text-md">{file?.icon}</span>
+                          <span className="text-xs text-gray-700 whitespace-nowrap">
+                            {file?.name}
+                          </span>
+                          <button
+                            onClick={() => toggleFileSelection(fileId)}
+                            className="text-gray-400 hover:text-gray-600 ml-1"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {selectedFiles.length === 0 && <div className="flex-1" />}
+
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
-                    onClick={() => setShowFileDialog(true)}
+                    onClick={toggleSpeechRecognition}
                     variant="ghost"
                     size="icon"
-                    className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg flex-shrink-0"
-                    title="Attach files"
+                    className={`rounded-lg transition-colors ${isListening
+                      ? "bg-red-100 text-red-600 hover:bg-red-200"
+                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
+                      }`}
+                    title={
+                      isListening ? "Stop listening" : "Start voice input"
+                    }
                   >
-                    <Plus className="w-5 h-5" />
+                    <Mic className="w-5 h-5" />
                   </Button>
 
-                  {selectedFiles.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
-                      {selectedFiles.map((fileId) => {
-                        const file = availableFiles.find(
-                          (f) => f.id === fileId,
-                        );
-                        return (
-                          <Badge
-                            key={fileId}
-                            variant="secondary"
-                            className="flex items-center gap-2 py-1 px-2 bg-gray-50/70 border border-gray-200/50 flex-shrink-0"
-                          >
-                            <span className="text-md">{file?.icon}</span>
-                            <span className="text-xs text-gray-700 whitespace-nowrap">
-                              {file?.name}
-                            </span>
-                            <button
-                              onClick={() => toggleFileSelection(fileId)}
-                              className="text-gray-400 hover:text-gray-600 ml-1"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {selectedFiles.length === 0 && <div className="flex-1" />}
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  {isLoading ? (
                     <Button
-                      onClick={toggleSpeechRecognition}
-                      variant="ghost"
+                      onClick={handleStopRequest}
                       size="icon"
-                      className={`rounded-lg transition-colors ${
-                        isListening
-                          ? "bg-red-100 text-red-600 hover:bg-red-200"
-                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
-                      }`}
-                      title={
-                        isListening ? "Stop listening" : "Start voice input"
-                      }
+                      className="w-8 h-8 rounded-full bg-red-600 text-white hover:bg-red-700"
+                      title="Stop generation"
                     >
-                      <Mic className="w-5 h-5" />
+                      <CircleStop className="w-4 h-4" />
                     </Button>
-
-                    {isLoading ? (
-                      <Button
-                        onClick={handleStopRequest}
-                        size="icon"
-                        className="w-8 h-8 rounded-full bg-red-600 text-white hover:bg-red-700"
-                        title="Stop generation"
-                      >
-                        <CircleStop className="w-4 h-4" />
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!inputValue.trim()}
-                        size="icon"
-                        className={`w-8 h-8 rounded-full transition-colors ${
-                          inputValue.trim()
-                            ? "bg-blue-600 text-white hover:bg-blue-700"
-                            : "bg-gray-100/70 text-gray-400 cursor-not-allowed"
+                  ) : (
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!inputValue.trim()}
+                      size="icon"
+                      className={`w-8 h-8 rounded-full transition-colors ${inputValue.trim()
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-100/70 text-gray-400 cursor-not-allowed"
                         }`}
-                      >
-                        <ArrowUp className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
-
-              <QuickQueries onSelectQuery={handleQuickQuery} />
             </div>
-          </div>
-        )
-      : (
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 pb-40">
-            <div className="max-w-full mx-auto space-y-6">
-              {messages.map((message, index) => {
-                // Create a truly unique key
-                const uniqueKey = `${message.id}-${index}-${message.timestamp.getTime()}`;
 
-                return (
-                  <div key={uniqueKey} className="space-y-2 ">
-                    {message.type === "user" ? (
-                      <>
-                        <div className="flex justify-end ">
-                          <div className="inline-block max-w-full rounded-2xl px-5 py-3 bg-gray-900 text-white shadow-sm">
-                            <p className="text-md leading-relaxed whitespace-pre-wrap break-words">
-                              {message.content}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-3 px-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 hover:bg-gray-800"
-                            onClick={() =>
-                              copyToClipboard(message.content, message.id)
-                            }
-                            title="Copy message"
-                          >
-                            {copiedMessageId === message.id ? (
-                              <Check className="h-3 w-3 text-white" />
-                            ) : (
-                              <Copy className="h-3 w-3 text-gray-300" />
-                            )}
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-2">
-                        {message.visualRendered && message.dashboardData ? (
-                          // Check if ONLY content exists (no KPIs, charts, or table)
-                          (() => {
-                            const data = message.dashboardData;
-                            const hasKPIs =
-                              data.kpis &&
-                              Array.isArray(data.kpis) &&
-                              data.kpis.length > 0;
-                            const hasCharts =
-                              data.charts &&
-                              Array.isArray(data.charts) &&
-                              data.charts.length > 0;
-                            const hasTable =
-                              data.table &&
-                              Array.isArray(data.table) &&
-                              data.table.length > 0;
-                            const hasContent =
-                              data.content &&
-                              typeof data.content === "string" &&
-                              data.content.trim() !== "";
-
-                            const hasOnlyContent =
-                              hasContent && !hasKPIs && !hasCharts && !hasTable;
-
-                            if (hasOnlyContent) {
-                              // Render ONLY the content without the DashboardCard
-                              return (
-                                <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
-                                  <ReactMarkdown
-                                    components={{
-                                      p: ({ children }) => (
-                                        <p className="mb-2 last:mb-0 text-md">
-                                          {children}
-                                        </p>
-                                      ),
-                                      strong: ({ children }) => (
-                                        <strong className="font-bold text-gray-900">
-                                          {children}
-                                        </strong>
-                                      ),
-                                    }}
-                                  >
-                                    {data.content}
-                                  </ReactMarkdown>
-                                </div>
-                              );
-                            } else {
-                              // For dashboard data with KPIs/charts/table, show content ABOVE the card
-                              return (
-                                <>
-                                  {/* Show content in message bubble if it exists */}
-                                  {hasContent && (
-                                    <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm mb-4">
-                                      <ReactMarkdown
-                                        components={{
-                                          p: ({ children }) => (
-                                            <p className="mb-2 last:mb-0 text-md">
-                                              {children}
-                                            </p>
-                                          ),
-                                          strong: ({ children }) => (
-                                            <strong className="font-bold text-gray-900">
-                                              {children}
-                                            </strong>
-                                          ),
-                                        }}
-                                      >
-                                        {data.content}
-                                      </ReactMarkdown>
-                                    </div>
-                                  )}
-
-                                  {/* Show DashboardCard below the content */}
-                                  <div className="w-full">
-                                    <DashboardCard
-                                      dashboardData={message.dashboardData}
-                                      timestamp={message.timestamp}
-                                      showLoader={false}
-                                    />
-                                  </div>
-
-                                  <div className="flex items-center gap-3 px-2">
-                                    {/* Empty div for spacing */}
-                                  </div>
-                                </>
-                              );
-                            }
-                          })()
-                        ) : (
-                          // Just render the message content without any dashboard data
-                          <>
-                            <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
-                              <ReactMarkdown
-                                components={{
-                                  p: ({ children }) => (
-                                    <p className="mb-2 last:mb-0 text-md">
-                                      {children}
-                                    </p>
-                                  ),
-                                  strong: ({ children }) => (
-                                    <strong className="font-bold text-gray-900">
-                                      {children}
-                                    </strong>
-                                  ),
-                                }}
-                              >
-                                {message.content}
-                              </ReactMarkdown>
-                            </div>
-
-                            <div className="flex items-center gap-3 px-2">
-                              {/* Empty div for spacing */}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {isLoading && !hasData && pendingQuery && <ThinkingIndicator />}
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* WITH this div: */}
-          <div
-            className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300 "
-            style={{
-              left: isCollapsed ? "4rem" : "18rem",
-              right: "2rem",
-            }}
-          >
-            <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto ">
-              <MessageInput
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-                selectedFiles={selectedFiles}
-                availableFiles={availableFiles}
-                isLoading={isLoading}
-                isListening={isListening}
-                lastQuery={lastQuery}
-                onSendMessage={handleSendMessage}
-                onStopRequest={handleStopRequest}
-                onRetry={handleRetry}
-                onToggleSpeech={toggleSpeechRecognition}
-                onOpenFileDialog={() => setShowFileDialog(true)}
-                onToggleFileSelection={toggleFileSelection}
-              />
-            </div>
-            <div className="px-4 pb-2 text-xs text-gray-600 text-center font-bold border-white/30 pt-2">
-              Adro can make mistakes. Check important info.
-            </div>
+            <QuickQueries onSelectQuery={handleQuickQuery} />
           </div>
         </div>
-      )}
+      )
+        : (
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-4 pb-40">
+              <div className="max-w-full mx-auto space-y-6">
+                {messages.map((message, index) => {
+                  // Create a truly unique key
+                  const uniqueKey = `${message.id}-${index}-${message.timestamp.getTime()}`;
+
+                  return (
+                    <div key={uniqueKey} className="space-y-2 ">
+                      {message.type === "user" ? (
+                        <>
+                          <div className="flex justify-end ">
+                            <div className="inline-block max-w-full rounded-2xl px-5 py-3 bg-gray-900 text-white shadow-sm">
+                              <p className="text-md leading-relaxed whitespace-pre-wrap break-words">
+                                {message.content}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-3 px-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:bg-gray-800"
+                              onClick={() =>
+                                copyToClipboard(message.content, message.id)
+                              }
+                              title="Copy message"
+                            >
+                              {copiedMessageId === message.id ? (
+                                <Check className="h-3 w-3 text-white" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-gray-300" />
+                              )}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-2">
+                          {message.visualRendered && message.dashboardData ? (
+                            // Check if ONLY content exists (no KPIs, charts, or table)
+                            (() => {
+                              const data = message.dashboardData;
+                              const hasKPIs =
+                                data.kpis &&
+                                Array.isArray(data.kpis) &&
+                                data.kpis.length > 0;
+                              const hasCharts =
+                                data.charts &&
+                                Array.isArray(data.charts) &&
+                                data.charts.length > 0;
+                              const hasTable =
+                                data.table &&
+                                Array.isArray(data.table) &&
+                                data.table.length > 0;
+                              const hasContent =
+                                data.content &&
+                                typeof data.content === "string" &&
+                                data.content.trim() !== "";
+
+                              const hasOnlyContent =
+                                hasContent && !hasKPIs && !hasCharts && !hasTable;
+
+                              if (hasOnlyContent) {
+                                // Render ONLY the content without the DashboardCard
+                                return (
+                                  <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
+                                    <ReactMarkdown
+                                      components={{
+                                        p: ({ children }) => (
+                                          <p className="mb-2 last:mb-0 text-md">
+                                            {children}
+                                          </p>
+                                        ),
+                                        strong: ({ children }) => (
+                                          <strong className="font-bold text-gray-900">
+                                            {children}
+                                          </strong>
+                                        ),
+                                      }}
+                                    >
+                                      {data.content}
+                                    </ReactMarkdown>
+                                  </div>
+                                );
+                              } else {
+                                // For dashboard data with KPIs/charts/table, show content ABOVE the card
+                                return (
+                                  <>
+                                    {/* Show content in message bubble if it exists */}
+                                    {hasContent && (
+                                      <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm mb-4">
+                                        <ReactMarkdown
+                                          components={{
+                                            p: ({ children }) => (
+                                              <p className="mb-2 last:mb-0 text-md">
+                                                {children}
+                                              </p>
+                                            ),
+                                            strong: ({ children }) => (
+                                              <strong className="font-bold text-gray-900">
+                                                {children}
+                                              </strong>
+                                            ),
+                                          }}
+                                        >
+                                          {data.content}
+                                        </ReactMarkdown>
+                                      </div>
+                                    )}
+
+                                    {/* Show DashboardCard below the content */}
+                                    <div className="w-full">
+                                      <DashboardCard
+                                        dashboardData={message.dashboardData}
+                                        timestamp={message.timestamp}
+                                        showLoader={false}
+                                      />
+                                    </div>
+
+                                    <div className="flex items-center gap-3 px-2">
+                                      {/* Empty div for spacing */}
+                                    </div>
+                                  </>
+                                );
+                              }
+                            })()
+                          ) : (
+                            // Just render the message content without any dashboard data
+                            <>
+                              <div className="w-full rounded-2xl px-5 py-3 bg-gray-100 text-gray-900 shadow-sm">
+                                <ReactMarkdown
+                                  components={{
+                                    p: ({ children }) => (
+                                      <p className="mb-2 last:mb-0 text-md">
+                                        {children}
+                                      </p>
+                                    ),
+                                    strong: ({ children }) => (
+                                      <strong className="font-bold text-gray-900">
+                                        {children}
+                                      </strong>
+                                    ),
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              </div>
+
+                              <div className="flex items-center gap-3 px-2">
+                                {/* Empty div for spacing */}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {isLoading && !hasData && pendingQuery && activeChatId === loadingChatId && <ThinkingIndicator />}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+
+            {/* WITH this div: */}
+            <div
+              className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300 "
+              style={{
+                left: isCollapsed ? "4rem" : "18rem",
+                right: "2rem",
+              }}
+            >
+              <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto ">
+                <MessageInput
+                  inputValue={inputValue}
+                  setInputValue={setInputValue}
+                  selectedFiles={selectedFiles}
+                  availableFiles={availableFiles}
+                  isLoading={isLoading}
+                  isListening={isListening}
+                  lastQuery={lastQuery}
+                  onSendMessage={handleSendMessage}
+                  onStopRequest={handleStopRequest}
+                  onRetry={handleRetry}
+                  onToggleSpeech={toggleSpeechRecognition}
+                  onOpenFileDialog={() => setShowFileDialog(true)}
+                  onToggleFileSelection={toggleFileSelection}
+                />
+              </div>
+              <div className="px-4 pb-2 text-xs text-gray-600 text-center font-bold border-white/30 pt-2">
+                Adro can make mistakes. Check important info.
+              </div>
+            </div>
+          </div>
+        )}
       <div className="px-4 pb-2 text-xs text-gray-400 font-bold text-center border-t border-white/30 pt-2">
         Adro can make mistakes. Check important info.
       </div>

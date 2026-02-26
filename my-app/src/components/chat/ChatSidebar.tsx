@@ -10,7 +10,7 @@ import { useSidebarStore } from "@/src/services/api/chat/sidebar-store";
 
 export const ChatSidebar = () => {
   const { isCollapsed, toggleSidebar } = useSidebarStore();
-  
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [chatToDelete, setChatToDelete] = useState<{ id: string; title: string } | null>(null);
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
@@ -61,13 +61,18 @@ export const ChatSidebar = () => {
 
   const handleSelectChat = (chatId: string) => {
     if (chatId) {
-      // NEW - Clear refresh loader flags when switching chats
+      // Clear refresh loader flags when switching chats.
+      // NOTE: We do NOT call stopPolling() here — the backend task should keep running.
+      // The visual loader is hidden via the loadingChatId guard in dashboard-content.tsx.
       useDashboardStore.getState().setRefreshLoaderMessageId(null, null);
       fetchChatHistory(chatId);
     }
   };
 
   const handleNewChat = () => {
+    // NOTE: We do NOT call stopPolling() here — the backend task should keep running
+    // while the user opens a new chat. The visual loader is scoped by loadingChatId.
+    useDashboardStore.getState().setRefreshLoaderMessageId(null, null);
     createNewChat();
     toast.success("New chat started", { duration: 2000 });
   };
@@ -168,16 +173,15 @@ export const ChatSidebar = () => {
       const numB = parseInt(b?.chat_id || "0", 10);
       return numB - numA;
     })
-    .filter(chat => 
+    .filter(chat =>
       chat?.title?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
   return (
     <>
       <div
-        className={`border-r transition-all duration-300 flex flex-col h-full bg-white ${
-          isCollapsed ? "w-16" : "w-72"
-        }`}
+        className={`border-r transition-all duration-300 flex flex-col h-full bg-white ${isCollapsed ? "w-16" : "w-72"
+          }`}
       >
         <div className="p-4 flex items-center gap-3 border-b">
           <button
@@ -255,11 +259,10 @@ export const ChatSidebar = () => {
                 filteredTitles.map((chat) => (
                   <div
                     key={chat?.chat_id || Math.random()}
-                    className={`group relative rounded-lg transition-all ${
-                      chat?.chat_id === currentChatId
-                        ? "bg-indigo-50 border border-indigo-200"
-                        : "hover:bg-slate-50 border border-transparent"
-                    }`}
+                    className={`group relative rounded-lg transition-all ${chat?.chat_id === currentChatId
+                      ? "bg-indigo-50 border border-indigo-200"
+                      : "hover:bg-slate-50 border border-transparent"
+                      }`}
                   >
                     {editingChatId === chat?.chat_id ? (
                       <div className="flex items-center gap-1 px-2 py-1.5">
@@ -302,18 +305,16 @@ export const ChatSidebar = () => {
                         >
                           <div className="flex items-center gap-2">
                             <MessageSquare
-                              className={`w-4 h-4 flex-shrink-0 ${
-                                chat?.chat_id === currentChatId
-                                  ? "text-indigo-600"
-                                  : "text-slate-500"
-                              }`}
+                              className={`w-4 h-4 flex-shrink-0 ${chat?.chat_id === currentChatId
+                                ? "text-indigo-600"
+                                : "text-slate-500"
+                                }`}
                             />
                             <span
-                              className={`truncate w-40 ${
-                                chat?.chat_id === currentChatId
-                                  ? "font-medium text-indigo-700"
-                                  : "text-slate-700"
-                              }`}
+                              className={`truncate w-40 ${chat?.chat_id === currentChatId
+                                ? "font-medium text-indigo-700"
+                                : "text-slate-700"
+                                }`}
                             >
                               {chat?.title || "Untitled Chat"}
                             </span>

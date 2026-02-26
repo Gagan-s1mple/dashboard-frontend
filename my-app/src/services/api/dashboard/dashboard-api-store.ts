@@ -178,10 +178,10 @@ export class DashboardAPI {
       }
 
       // Log detailed KPI info
-      kpis.forEach((kpi: KPI, index: number) => {});
+      kpis.forEach((kpi: KPI, index: number) => { });
 
       // Log detailed chart info
-      charts.forEach((chart: ChartOption, index: number) => {});
+      charts.forEach((chart: ChartOption, index: number) => { });
 
       // Log content and table if present
       if (content) {
@@ -301,25 +301,25 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
-  let responseData: any = null;
+        let responseData: any = null;
 
-  try {
-    responseData = await response.json();
-  } catch {
-    responseData = null;
-  }
+        try {
+          responseData = await response.json();
+        } catch {
+          responseData = null;
+        }
 
-  const backendMessage =
-    responseData?.detail ||
-    responseData?.message ||
-    "";
+        const backendMessage =
+          responseData?.detail ||
+          responseData?.message ||
+          "";
 
-  if (backendMessage.toLowerCase().includes("credit")) {
-    throw new Error("INSUFFICIENT_CREDITS");
-  }
+        if (backendMessage.toLowerCase().includes("credit")) {
+          throw new Error("INSUFFICIENT_CREDITS");
+        }
 
-  throw new Error(backendMessage || `HTTP ${response.status}`);
-}
+        throw new Error(backendMessage || `HTTP ${response.status}`);
+      }
 
       const responseData = await response.json();
 
@@ -417,10 +417,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   setRefreshLoaderMessageId: (messageId: string | null, chatId: string | null) => {
-    set({ 
+    set({
       refreshLoaderMessageId: messageId,
-      refreshLoaderChatId: chatId, 
-      polling:true
+      refreshLoaderChatId: chatId,
+      polling: true
     });
   },
 
@@ -486,17 +486,17 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
 
       // Step 3: Start polling for this task (pass messageId used for task creation)
       get().pollTaskStatus(task_id, messageIdUsed);
-    }catch (error: any) {
-  set({
-    dashboardData: INITIAL_DASHBOARD_DATA,
-    hasData: false,
-    loading: false,
-    polling: false,
-    currentTaskId: null,
-  });
+    } catch (error: any) {
+      set({
+        dashboardData: INITIAL_DASHBOARD_DATA,
+        hasData: false,
+        loading: false,
+        polling: false,
+        currentTaskId: null,
+      });
 
-  throw error; 
-}
+      throw error;
+    }
   },
 
   pollTaskStatus: async (taskId: string, messageIdOverride?: string) => {
@@ -723,20 +723,20 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     try {
       const stored = localStorage.getItem("adro_polling_task");
       if (!stored) return;
-      
+
       const { taskId, chatId, messageId } = JSON.parse(stored);
       if (!taskId || !chatId) return;
-      
+
       // Restore chat context
       dashboardAPI.setChatId(chatId);
       dashboardAPI.setMessageId(messageId || "0");
-      
+
       // NEW - Mark that we're resuming from refresh and set which message shows loader
-      set({ 
-        currentChatId: chatId, 
+      set({
+        currentChatId: chatId,
         currentMessageId: messageId || "0",
-        currentTaskId: taskId, 
-        polling: true, 
+        currentTaskId: taskId,
+        polling: true,
         loading: false,
         isResumingFromRefresh: true, // NEW - Set flag
         resumingMessageId: messageId, // NEW - Track which message
@@ -744,9 +744,9 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         refreshLoaderMessageId: messageId, // NEW - Store which message shows loader on refresh
         refreshLoaderChatId: chatId, // NEW - Store which chat shows loader on refresh
       });
-      
-      console.log("🔄 Resuming polling after refresh for chat:", chatId, "message:", messageId);
-      get().pollTaskStatus(taskId, messageId);
+
+      // console.log("🔄 Resuming polling after refresh for chat:", chatId, "message:", messageId);
+      // get().pollTaskStatus(taskId, messageId); // Commented out: resumePollingIfNeeded is disabled
     } catch {
       localStorage.removeItem("adro_polling_task");
     }

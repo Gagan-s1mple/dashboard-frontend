@@ -98,7 +98,7 @@ export const FileDialogs = ({
               </DialogTitle>
             </div>
             <div id="file-selection-description" className="sr-only">
-              Select one or more CSV files from your database to analyze
+              Select one or more CSV or Excel files from your database to analyze
             </div>
           </DialogHeader>
 
@@ -325,7 +325,7 @@ export const FileDialogs = ({
                 <p className="text-slate-600 font-medium">
                   Click to upload files
                 </p>
-                <p className="text-sm text-slate-500">CSV, Excel, JSON</p>
+                <p className="text-sm text-slate-500">Excel (.xlsx, .xls) or CSV only &bull; Max 200 MB per file</p>
               </div>
 
               {uploading && (
