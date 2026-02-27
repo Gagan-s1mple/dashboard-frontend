@@ -34,9 +34,18 @@ export const useSignupStore = create<SignupState>((set) => ({
       });
 
       if (!response.ok) {
-        const err = await response.text();
-        throw new Error(err || "Signup failed");
-      }
+  const errorData = await response.json();
+
+  let message = "Signup failed";
+
+  if (Array.isArray(errorData.detail)) {
+    message = errorData.detail[0]?.msg;
+  } else if (typeof errorData.detail === "string") {
+    message = errorData.detail;
+  }
+
+  throw new Error(message);
+}
 
       const data = await response.json();
    

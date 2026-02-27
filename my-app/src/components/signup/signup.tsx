@@ -52,13 +52,34 @@ export function SignupPage({
 const [acceptedTerms, setAcceptedTerms] = useState(false);
 
 
-  const handleInputChange = (e: any) => {
+  const   handleInputChange = (e: any) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (formData.name.trim().length < 2) {
+  toast.error("Name must be at least 2 characters");
+  return;
+}
+  const   handleInputChange = (e: any) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+if (!emailRegex.test(formData.email)) {
+  toast.error("Please enter a valid email address");
+  return;
+}
+  }
 
     try {
       const payload = {
@@ -85,6 +106,7 @@ await signup(payload);
       setError(err.message || "Signup failed");
     }
   };
+
 return (
   <div
     className={cn(
@@ -171,6 +193,7 @@ return (
                   placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleInputChange}
+                  
                   className="h-12 bg-white/40 border-white/50"
                   required
                 />
@@ -300,9 +323,6 @@ return (
     </Dialog>
   </Label>
 </div>
-
-
-              
               <Button
                 type="submit"
                 disabled={loading || !acceptedTerms}

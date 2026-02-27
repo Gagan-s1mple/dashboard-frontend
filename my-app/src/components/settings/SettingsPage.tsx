@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "../ui/select"
 import Image from "next/image";
+import { labelGrid } from "react-day-picker";
 
 
 export function SettingsPage() {
@@ -45,7 +46,7 @@ const [rangeType, setRangeType] = useState<"month" | "year">("month");
 const [startDate, setStartDate] = useState("");
 const [endDate, setEndDate] = useState("");
 const [recentActivity, setRecentActivity] = useState<
-  { date: string; amount: number }[]
+  { date: string; amount: number; credits: number }[]
 >([]);
 const [currency, setCurrency] = useState<string | null>(null);
 const USD_TO_INR = 91.0;
@@ -126,6 +127,7 @@ const purchaseCredits = async () => {
       }
     );
     const order = await orderResponse.json();
+    console.log(order)
 
 //razorpay api key
     const options = {
@@ -266,15 +268,30 @@ const getChartOption = () => {
     xAxis: {
       type: "category",
       data: dates,
+      name: "Date",   
+  nameLocation: "middle",
+  nameGap: 30
+    
+      
+      
     },
     yAxis: {
       type: "value",
+      name:"usage",
+     nameLocation: "top",
+    nameGap: 30
+
     },
     series: [
       {
         data: usage,
         type: chartType,
         smooth: chartType === "line",
+        label:{
+          show :true,
+          position:"top"
+
+        }
       },
     ],
   };
@@ -620,9 +637,15 @@ const handleCleanSubmit = () => {
           })}
         </span>
 
-        <span className="text-green-500 font-medium">
-          +{item.amount}
-        </span>
+         <div className="flex items-center gap-6">
+    <span className="text-green-600 font-semibold">
+      +{item.credits}
+    </span>
+
+    <span className="text-green-600 font-medium">
+      +{currency === "INR" ? "₹" : "$"}{item.amount}
+    </span>
+  </div>
       </div>
     ))}
   </div>
@@ -712,10 +735,13 @@ const handleCleanSubmit = () => {
   </div>
 </CardHeader>
     <CardContent>
-      <ReactECharts
-        option={getChartOption()}
-        style={{ height: "350px", width: "100%" }}
-      />
+      {startDate && endDate ? (
+  <ReactECharts option={getChartOption()} />
+) : (
+  <div className="h-[300px] flex items-center justify-center text-gray-500">
+    Select a date range to view usage analytics
+  </div>
+)}
     </CardContent>
   </Card>
   </div>

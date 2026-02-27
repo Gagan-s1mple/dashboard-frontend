@@ -1333,34 +1333,39 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
             </div>
 
             {/* WITH this div: */}
-            <div
-              className="fixed bottom-0 z-50 bg-transparent backdrop-blur-sm  transition-all duration-300 "
-              style={{
-                left: isCollapsed ? "4rem" : "18rem",
-                right: "2rem",
-              }}
-            >
-              <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto ">
-                <MessageInput
-                  inputValue={inputValue}
-                  setInputValue={setInputValue}
-                  selectedFiles={selectedFiles}
-                  availableFiles={availableFiles}
-                  isLoading={isLoading}
-                  isListening={isListening}
-                  lastQuery={lastQuery}
-                  onSendMessage={handleSendMessage}
-                  onStopRequest={handleStopRequest}
-                  onRetry={handleRetry}
-                  onToggleSpeech={toggleSpeechRecognition}
-                  onOpenFileDialog={() => setShowFileDialog(true)}
-                  onToggleFileSelection={toggleFileSelection}
-                />
-              </div>
-              <div className="px-4 pb-2 text-xs text-gray-600 text-center font-bold border-white/30 pt-2">
-                Adro can make mistakes. Check important info.
-              </div>
-            </div>
+  <div
+  className="fixed bottom-0 z-50 backdrop-blur-md bg-white/20 transition-all duration-300"
+  style={{
+    left: isCollapsed ? "4rem" : "18rem",
+    right: "2rem",
+    WebkitMaskImage: "linear-gradient(to top, black 70%, transparent 100%)",
+    maskImage: "linear-gradient(to top, black 70%, transparent 100%)",
+  }}
+>
+  <div className="absolute -top-12 left-0 right-0 h-10 bg-gradient-to-t from-white/10 to-transparent pointer-events-none" />
+
+  <div className="max-w-3xl mx-auto px-4 py-6 pb-4 pointer-events-auto relative ">
+    <MessageInput
+      inputValue={inputValue}
+      setInputValue={setInputValue}
+      selectedFiles={selectedFiles}
+      availableFiles={availableFiles}
+      isLoading={isLoading}
+      isListening={isListening}
+      lastQuery={lastQuery}
+      onSendMessage={handleSendMessage}
+      onStopRequest={handleStopRequest}
+      onRetry={handleRetry}
+      onToggleSpeech={toggleSpeechRecognition}
+      onOpenFileDialog={() => setShowFileDialog(true)}
+      onToggleFileSelection={toggleFileSelection}
+    />
+  </div>
+
+  <div className="px-4 pb-2 text-xs text-gray-600 text-center font-bold border-white/30 pt-2 relative">
+    Adro can make mistakes. Check important info.
+  </div>
+</div>
           </div>
         )}
       <div className="px-4 pb-2 text-xs text-gray-400 font-bold text-center border-t border-white/30 pt-2">

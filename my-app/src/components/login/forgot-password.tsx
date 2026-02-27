@@ -198,7 +198,6 @@ export function ForgotPasswordPage({
                       <ol className="text-xs text-blue-700 mt-2 space-y-2 ml-4 list-decimal">
                         <li>Check your email for the new password</li>
                         <li>Login with your email and the new password</li>
-                        <li>Change your password from your account settings</li>
                       </ol>
                     </div>
                   </div>
@@ -228,10 +227,10 @@ export function ForgotPasswordPage({
           {/* RIGHT IMAGE */}
           <div className="relative hidden md:block">
             <Image
-              src="/round.png"
+              src="/logo.png"
               alt="Image"
               fill
-              className="object-cover"
+              className="object-contain"
               priority
             />
             <div className="absolute inset-0 bg-black/10" />
