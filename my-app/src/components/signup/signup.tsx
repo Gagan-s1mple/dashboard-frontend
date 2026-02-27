@@ -44,6 +44,7 @@ export function SignupPage({
     name: "",
     email: "",
     phno: "",
+    country:"",
     occupation: "",
     organization: "",
   });
@@ -52,36 +53,35 @@ export function SignupPage({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
+const handleInputChange = (e: any) => {
+  setFormData({ ...formData, [e.target.name]: e.target.value });
+};
 
-  const handleInputChange = (e: any) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
 
-  };
+  if (formData.name.trim().length < 2) {
+    toast.error("Name must be at least 2 characters");
+    return;
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    toast.error("Please enter a valid email address");
+    return;
+  }
 
-    if (formData.name.trim().length < 2) {
-      toast.error("Name must be at least 2 characters");
+  const digitsOnly = formData.phno.replace(/\D/g, "");
+
+  if (digitsOnly.startsWith("91")) {
+    const numberWithoutCode = digitsOnly.slice(2);
+
+    if (numberWithoutCode.length !== 10) {
+      toast.error("Phone number should be 10 digits");
       return;
     }
-    const handleInputChange = (e: any) => {
-      setFormData({ ...formData, [e.target.name]: e.target.value });
-
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-      e.preventDefault();
-
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (!emailRegex.test(formData.email)) {
-        toast.error("Please enter a valid email address");
-        return;
-      }
-    }
-
+  }
     try {
       const payload = {
         ...formData,

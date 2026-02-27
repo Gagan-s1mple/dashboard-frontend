@@ -8,6 +8,7 @@ interface SignupPayload {
   phno: string;
   occupation: string;
   organization: string;
+  country:string;
 }
 
 interface SignupState {
