@@ -32,38 +32,56 @@ export const ChartDownloadButton = ({ chartOption, chartTitle }: ChartDownloadBu
     if (!chartRef.current) return;
 
     try {
-      let canvas;
+      let dataUrl: string;
 
       if (format === "png" || format === "jpg") {
         if (echartRef.current && echartRef.current.getEchartsInstance) {
-          const instance = echartRef.current.getEchartsInstance();
-          canvas = instance.getRenderedCanvas({
-            backgroundColor: "#fff",
-            pixelRatio: 2,
-          });
+          try {
+            const instance = echartRef.current.getEchartsInstance();
+            const canvas = instance.getRenderedCanvas({
+              backgroundColor: "#fff",
+              pixelRatio: 2,
+            });
+            dataUrl = canvas.toDataURL(format === "png" ? "image/png" : "image/jpeg", 0.95);
+          } catch {
+            // Fallback: use html-to-image (Firefox-compatible)
+            dataUrl = format === "png"
+              ? await htmlToImage.toPng(chartRef.current, {
+                backgroundColor: "#ffffff",
+                pixelRatio: 2,
+                cacheBust: true,
+              })
+              : await htmlToImage.toJpeg(chartRef.current, {
+                backgroundColor: "#ffffff",
+                pixelRatio: 2,
+                quality: 0.95,
+                cacheBust: true,
+              });
+          }
         } else {
-          canvas = await htmlToImage.toCanvas(chartRef.current, {
-            backgroundColor: "#ffffff",
-            pixelRatio: 2,
-          });
+          // Fallback: use html-to-image (Firefox-compatible)
+          dataUrl = format === "png"
+            ? await htmlToImage.toPng(chartRef.current, {
+              backgroundColor: "#ffffff",
+              pixelRatio: 2,
+              cacheBust: true,
+            })
+            : await htmlToImage.toJpeg(chartRef.current, {
+              backgroundColor: "#ffffff",
+              pixelRatio: 2,
+              quality: 0.95,
+              cacheBust: true,
+            });
         }
 
-        if (format === "png") {
-          const link = document.createElement("a");
-          link.download = `${chartTitle || "chart"}.png`;
-          link.href = canvas.toDataURL("image/png");
-          link.click();
-          toast.success("Chart downloaded as PNG");
-        } else if (format === "jpg") {
-          const link = document.createElement("a");
-          link.download = `${chartTitle || "chart"}.jpg`;
-          link.href = canvas.toDataURL("image/jpeg", 0.95);
-          link.click();
-          toast.success("Chart downloaded as JPG");
-        }
+        const link = document.createElement("a");
+        link.download = `${chartTitle || "chart"}.${format}`;
+        link.href = dataUrl;
+        link.click();
+        toast.success(`Chart downloaded as ${format.toUpperCase()}`);
       }
     } catch (error) {
-     
+
       throw error
     }
 

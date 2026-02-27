@@ -98,6 +98,7 @@ export const MessageInput = ({
         {selectedFiles.length === 0 && <div className="flex-1" />}
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Mic button commented out
           <Button
             onClick={onToggleSpeech}
             variant="ghost"
@@ -111,6 +112,7 @@ export const MessageInput = ({
           >
             <Mic className="w-5 h-5" />
           </Button>
+          */}
 
           {/* Always show Retry button if there's a lastQuery, regardless of loading state */}
           {lastQuery && (
@@ -140,11 +142,10 @@ export const MessageInput = ({
               onClick={onSendMessage}
               disabled={!inputValue.trim()}
               size="icon"
-              className={`w-8 h-8 rounded-full transition-colors ${
-                inputValue.trim()
+              className={`w-8 h-8 rounded-full transition-colors ${inputValue.trim()
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-gray-100/70 text-gray-400 cursor-not-allowed"
-              }`}
+                }`}
             >
               <ArrowUp className="w-4 h-4" />
             </Button>

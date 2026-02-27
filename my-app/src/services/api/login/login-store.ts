@@ -57,7 +57,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       });
 
       const data = await response.json().catch(() => null);
-      
+
       if (!response.ok) {
         const message =
           data?.detail ||
@@ -74,7 +74,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       // ✅ Success case
       const newEmail = data.email || payload.username;
       const lastLoginEmail = localStorage.getItem("lastLoginEmail");
-      
+
       // NEW USER: Either no lastLoginEmail (first login ever) OR different email
       const isNewUser = !lastLoginEmail || lastLoginEmail !== newEmail;
 
@@ -95,7 +95,7 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       setTimeout(() => {
         // Restore selected files from sessionStorage first
         const persistedSelected = restoreSelectedFiles();
-        
+
         if (isNewUser) {
           // Clear everything for new user
           useChatStore.getState().setSelectedFiles([]);
@@ -124,10 +124,10 @@ export const useLoginStore = create<LoginState>((set, get) => ({
       localStorage.removeItem("token_type");
       localStorage.removeItem("lastLoginEmail"); // Clear tracking email
       localStorage.removeItem("adro_last_query"); // Clear last query
-      
+
       // DON'T clear selected files from sessionStorage on logout
       // We want to preserve them for next login
-      
+
       // Clean up chat store
       useChatStore.getState().cleanupOnLogout();
     }

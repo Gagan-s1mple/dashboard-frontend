@@ -153,7 +153,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
   } = useChatStore();
 
   const MAX_FILES_PER_SESSION = 5;
-  const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+  const MAX_FILE_SIZE = 250 * 1024 * 1024; // 250MB
 
   // ADD THIS LINE - Get sidebar collapsed state
   const { isCollapsed } = useSidebarStore();
@@ -497,12 +497,12 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       return;
     }
 
-    // Check file size — max 200 MB per file
+    // Check file size — max 250 MB per file
     const oversizedFiles = fileArray.filter((file) => file.size > MAX_FILE_SIZE);
     if (oversizedFiles.length > 0) {
       if (toastId) toast.dismiss(toastId);
       const id = toast.error(
-        `File size must be 200 MB or less. Too large: ${oversizedFiles.map(f => f.name).join(", ")}`,
+        `File size must be 250 MB or less. Too large: ${oversizedFiles.map(f => f.name).join(", ")}`,
       );
       setToastId(id);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -730,6 +730,15 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       return;
     }
 
+    const { currentChatId: chatId, currentChatMessages: chatMessages } = useChatStore.getState();
+    const nextMessageId = Math.ceil(
+      (chatMessages.length + 1) / 2,
+    ).toString();
+
+    if (chatId) {
+      useDashboardStore.getState().setChatInfo(chatId, nextMessageId);
+    }
+
     addUserMessage(inputValue.trim(), selectedFiles);
 
     setLastQuery(inputValue.trim());
@@ -799,10 +808,11 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
       useDashboardStore.getState().setChatInfo(currentChatId, retryMessageId);
     }
 
-    addUserMessage(` ${lastQuery}`, selectedFiles);
+    addUserMessage(lastQuery, selectedFiles);
 
     setPendingQuery(lastQuery);
     setIsLoading(true);
+    setLoadingChatId(activeChatId);
 
     const cleanFileNames = selectedFiles
       .map((file) => file.replace(/\.csv$/i, ""))
@@ -1110,6 +1120,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                 {selectedFiles.length === 0 && <div className="flex-1" />}
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Mic button commented out
                   <Button
                     onClick={toggleSpeechRecognition}
                     variant="ghost"
@@ -1124,6 +1135,7 @@ export const DashboardContent = ({ userEmail }: DashboardContentProps) => {
                   >
                     <Mic className="w-5 h-5" />
                   </Button>
+                  */}
 
                   {isLoading ? (
                     <Button

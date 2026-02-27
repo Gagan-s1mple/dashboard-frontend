@@ -14,10 +14,11 @@ import {
   Printer,
   Download,
   FileSpreadsheet,
-  FileJson,
   Image,
   Calendar,
   Database,
+  Maximize2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as htmlToImage from "html-to-image";
@@ -42,6 +43,10 @@ export const DashboardCard = ({
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const dashboardCardRef = useRef<HTMLDivElement>(null);
+
+  // State for chart expand modal
+  const [expandedChart, setExpandedChart] = useState<any>(null);
+  const [expandedChartTitle, setExpandedChartTitle] = useState<string>("");
 
   const hasKPIs =
     dashboardData?.kpis &&
@@ -91,10 +96,25 @@ export const DashboardCard = ({
       >
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">{chartTitle}</CardTitle>
-          <ChartDownloadButton
-            chartOption={fixedChartOption}
-            chartTitle={chartTitle}
-          />
+          <div className="flex items-center gap-1">
+            {/* Expand button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-slate-100"
+              onClick={() => {
+                setExpandedChart(fixedChartOption);
+                setExpandedChartTitle(chartTitle);
+              }}
+              title="Expand chart"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </Button>
+            <ChartDownloadButton
+              chartOption={fixedChartOption}
+              chartTitle={chartTitle}
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[300px]">
@@ -214,10 +234,10 @@ export const DashboardCard = ({
       }
 
       // Export Table Data if available
-      if (dashboardData.table && 
-          Array.isArray(dashboardData.table) && 
-          dashboardData.table.length > 0) {
-        
+      if (dashboardData.table &&
+        Array.isArray(dashboardData.table) &&
+        dashboardData.table.length > 0) {
+
         // Format table data for Excel
         const tableData = dashboardData.table.map((row: any) => {
           const formattedRow: any = {};
@@ -226,17 +246,17 @@ export const DashboardCard = ({
           });
           return formattedRow;
         });
-        
+
         const tableWs = XLSX.utils.json_to_sheet(tableData);
         XLSX.utils.book_append_sheet(wb, tableWs, "Data Table");
         hasData = true;
       }
 
       // Export Content if available (as text)
-      if (dashboardData.content && 
-          typeof dashboardData.content === "string" && 
-          dashboardData.content.trim() !== "") {
-        
+      if (dashboardData.content &&
+        typeof dashboardData.content === "string" &&
+        dashboardData.content.trim() !== "") {
+
         // Create a simple sheet with the content
         const contentData = [{ Content: dashboardData.content }];
         const contentWs = XLSX.utils.json_to_sheet(contentData);
@@ -251,8 +271,8 @@ export const DashboardCard = ({
       }
 
       // Generate filename with timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-      XLSX.writeFile(wb, `dashboard-${timestamp}.xlsx`);
+      const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      XLSX.writeFile(wb, `dashboard-${ts}.xlsx`);
       toast.success("Excel file downloaded successfully!");
     } catch (error) {
       console.error("Excel export error:", error);
@@ -260,82 +280,28 @@ export const DashboardCard = ({
     }
   };
 
-  const exportToHTML = async () => {
-    if (!dashboardCardRef.current) return;
-
-    try {
-      const dashboardHTML = dashboardCardRef.current.outerHTML;
-      const fullHTML = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Dashboard Export - ${new Date().toLocaleDateString()}</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-              padding: 20px;
-              background: white;
-              color: #1e293b;
-            }
-            .dashboard-container {
-              max-width: 1400px;
-              margin: 0 auto;
-            }
-            .kpi-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-              gap: 16px;
-              margin-bottom: 24px;
-            }
-            .chart-grid {
-              display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-              gap: 20px;
-            }
-            .card {
-              border: 1px solid #e2e8f0;
-              border-radius: 8px;
-              padding: 16px;
-              background: white;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            }
-            .badge {
-              display: inline-block;
-              padding: 4px 8px;
-              border-radius: 9999px;
-              font-size: 12px;
-              font-weight: 500;
-            }
-            table {
-              border-collapse: collapse;
-              width: 100%;
-            }
-            th, td {
-              border: 1px solid #e2e8f0;
-              padding: 8px 12px;
-              text-align: left;
-            }
-            th {
-              background-color: #f8fafc;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="dashboard-container">
-            ${dashboardHTML}
-          </div>
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob([fullHTML], { type: "text/html" });
-      downloadFile(blob, `dashboard-${Date.now()}.html`);
-      toast.success("HTML file downloaded successfully!");
-    } catch (error) {
-      toast.error("Failed to export as HTML");
-    }
+  // Helper: capture element as data URL using toPng (Firefox-compatible)
+  const captureElementAsDataUrl = async (element: HTMLElement): Promise<string> => {
+    // Use toPng which is more compatible with Firefox than toCanvas
+    // Multiple attempts with cacheBust to avoid Firefox caching issues
+    const dataUrl = await htmlToImage.toPng(element, {
+      backgroundColor: "#ffffff",
+      pixelRatio: 2,
+      cacheBust: true,
+      style: {
+        overflow: "visible",
+      },
+      // Filter to skip hidden/off-screen elements that might cause issues
+      filter: (node: HTMLElement) => {
+        // Skip elements that are positioned off-screen (chart download hidden canvases)
+        if (node.classList && node.classList.contains("absolute") &&
+          node.style && node.style.left === "-9999px") {
+          return false;
+        }
+        return true;
+      },
+    });
+    return dataUrl;
   };
 
   const handleDownload = async (format: string) => {
@@ -345,75 +311,140 @@ export const DashboardCard = ({
     setShowDownloadMenu(false);
 
     try {
-      if (format === "png" || format === "jpg" || format === "pdf" || format === "print") {
-        // For image-based exports, we need to ensure we're capturing the table properly
-        const canvas = await htmlToImage.toCanvas(dashboardCardRef.current, {
-          backgroundColor: "#ffffff",
-          pixelRatio: 2,
-          style: {
-            // Ensure tables are visible in the capture
-            overflow: 'visible',
-          }
-        });
-        
+      if (format === "png" || format === "jpg") {
+        // Use toPng/toJpeg directly for Firefox compatibility
+        let dataUrl: string;
         if (format === "png") {
-          const image = canvas.toDataURL("image/png");
-          const blob = await (await fetch(image)).blob();
-          downloadFile(blob, `dashboard-${Date.now()}.png`);
-          toast.success("PNG downloaded successfully!");
-        } else if (format === "jpg") {
-          const image = canvas.toDataURL("image/jpeg", 0.95);
-          const blob = await (await fetch(image)).blob();
-          downloadFile(blob, `dashboard-${Date.now()}.jpg`);
-          toast.success("JPG downloaded successfully!");
-        } else if (format === "pdf") {
-          const image = canvas.toDataURL("image/png");
-          const pdf = new jsPDF({
-            orientation: "landscape",
-            unit: "px",
-            format: [canvas.width, canvas.height],
+          dataUrl = await htmlToImage.toPng(dashboardCardRef.current, {
+            backgroundColor: "#ffffff",
+            pixelRatio: 2,
+            cacheBust: true,
           });
-          pdf.addImage(image, "PNG", 0, 0, canvas.width, canvas.height);
-          pdf.save(`dashboard-${Date.now()}.pdf`);
-          toast.success("PDF downloaded successfully!");
-        } else if (format === "print") {
-          const image = canvas.toDataURL("image/png");
-          const printWindow = window.open("", "_blank");
-          if (printWindow) {
-            printWindow.document.write(`
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <title>Dashboard Report</title>
-                <style>
-                  body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-                  img { width: 100%; height: auto; }
-                  @media print {
-                    body { margin: 0; }
-                    img { max-width: 100%; }
-                  }
-                </style>
-              </head>
-              <body>
-                <img src="${image}" />
-                <script>
-                  window.onload = () => { 
-                    setTimeout(() => { 
-                      window.print(); 
-                      setTimeout(() => window.close(), 500);
-                    }, 500); 
-                  }
-                </script>
-              </body>
-              </html>
-            `);
-            printWindow.document.close();
+        } else {
+          dataUrl = await htmlToImage.toJpeg(dashboardCardRef.current, {
+            backgroundColor: "#ffffff",
+            pixelRatio: 2,
+            quality: 0.95,
+            cacheBust: true,
+          });
+        }
+
+        const blob = await (await fetch(dataUrl)).blob();
+        downloadFile(blob, `dashboard-${Date.now()}.${format}`);
+        toast.success(`${format.toUpperCase()} downloaded successfully!`);
+
+      } else if (format === "pdf") {
+        // Capture the full dashboard content as PNG data URL
+        const dataUrl = await captureElementAsDataUrl(dashboardCardRef.current);
+
+        // Create an image to get dimensions
+        const img = new window.Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = reject;
+          img.src = dataUrl;
+        });
+
+        const imgWidth = img.width;
+        const imgHeight = img.height;
+
+        // Use landscape A4 page dimensions in px (at 72 DPI)
+        const pageWidth = 842; // A4 landscape width in points
+        const pageHeight = 595; // A4 landscape height in points
+        const margin = 20;
+        const contentWidth = pageWidth - margin * 2;
+        const contentHeight = pageHeight - margin * 2;
+
+        // Scale image to fit page width
+        const scale = contentWidth / imgWidth;
+        const scaledHeight = imgHeight * scale;
+
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "pt",
+          format: "a4",
+        });
+
+        if (scaledHeight <= contentHeight) {
+          // Fits on one page
+          pdf.addImage(dataUrl, "PNG", margin, margin, contentWidth, scaledHeight);
+        } else {
+          // Multi-page: split the image across pages
+          let yOffset = 0;
+          let pageNum = 0;
+
+          while (yOffset < imgHeight) {
+            if (pageNum > 0) {
+              pdf.addPage();
+            }
+
+            // Calculate how much of the source image fits on this page
+            const sourceSliceHeight = contentHeight / scale;
+
+            // Create a canvas for this page's slice
+            const sliceCanvas = document.createElement("canvas");
+            sliceCanvas.width = imgWidth;
+            sliceCanvas.height = Math.min(sourceSliceHeight, imgHeight - yOffset);
+            const ctx = sliceCanvas.getContext("2d");
+            if (ctx) {
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+              ctx.drawImage(
+                img,
+                0, yOffset, // source x, y
+                imgWidth, sliceCanvas.height, // source width, height
+                0, 0, // dest x, y
+                imgWidth, sliceCanvas.height // dest width, height
+              );
+            }
+
+            const sliceDataUrl = sliceCanvas.toDataURL("image/png");
+            const sliceScaledHeight = sliceCanvas.height * scale;
+            pdf.addImage(sliceDataUrl, "PNG", margin, margin, contentWidth, sliceScaledHeight);
+
+            yOffset += sourceSliceHeight;
+            pageNum++;
           }
+        }
+
+        pdf.save(`dashboard-${Date.now()}.pdf`);
+        toast.success("PDF downloaded successfully!");
+
+      } else if (format === "print") {
+        const dataUrl = await captureElementAsDataUrl(dashboardCardRef.current);
+        const printWindow = window.open("", "_blank");
+        if (printWindow) {
+          printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Dashboard Report</title>
+              <style>
+                body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+                img { width: 100%; height: auto; }
+                @media print {
+                  body { margin: 0; }
+                  img { max-width: 100%; }
+                }
+              </style>
+            </head>
+            <body>
+              <img src="${dataUrl}" />
+              <script>
+                window.onload = () => { 
+                  setTimeout(() => { 
+                    window.print(); 
+                    setTimeout(() => window.close(), 500);
+                  }, 500); 
+                }
+              </script>
+            </body>
+            </html>
+          `);
+          printWindow.document.close();
         }
       } else if (format === "excel") {
         exportToExcel();
-      } else if (format === "html") {
-        await exportToHTML();
       }
     } catch (error) {
       console.error("Export error:", error);
@@ -460,257 +491,284 @@ export const DashboardCard = ({
   }
 
   return (
-    <Card className="w-full shadow-2xl bg-white overflow-hidden">
-      <CardHeader className="border-b bg-white px-6 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-indigo-600 shadow-lg">
-              <LayoutDashboard className="w-5 h-5 text-white" />
+    <>
+      <Card className="w-full shadow-2xl bg-white overflow-hidden">
+        <CardHeader className="border-b bg-white px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-600 shadow-lg">
+                <LayoutDashboard className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                {/* Conditionally render title based on what data is available */}
+                <CardTitle className="text-xl font-bold text-slate-800">
+                  {hasCharts || hasKPIs ? "AI-Generated Dashboard" :
+                    hasTable ? "Data Table" :
+                      hasContent ? "Analysis" : "Data Table"}
+                </CardTitle>
+                <p className="text-sm text-slate-600">
+                  {hasCharts || hasKPIs ? "Complete Overview" :
+                    hasTable ? "Tabular Data View" :
+                      hasContent ? "Text Analysis" : "Data View"}
+                </p>
+              </div>
             </div>
-            <div>
-              {/* Conditionally render title based on what data is available */}
-              <CardTitle className="text-xl font-bold text-slate-800">
-                {hasCharts || hasKPIs ? "AI-Generated Dashboard" : 
-                 hasTable ? "Data Table" : 
-                 hasContent ? "Analysis" : "Data Table"}
-              </CardTitle>
-              <p className="text-sm text-slate-600">
-                {hasCharts || hasKPIs ? "Complete Overview" : 
-                 hasTable ? "Tabular Data View" : 
-                 hasContent ? "Text Analysis" : "Data View"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {timestamp && (
-              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
-                <Calendar className="w-3 h-3 mr-1" />
-                {timestamp.toLocaleDateString()}
-              </Badge>
-            )}
+            <div className="flex items-center gap-3">
+              {timestamp && (
+                <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
+                  <Calendar className="w-3 h-3 mr-1" />
+                  {timestamp.toLocaleDateString()}
+                </Badge>
+              )}
 
-            <div className="relative">
-              <Button
-                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                disabled={isExporting}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
-              >
-                {isExporting ? (
+              <div className="relative">
+                <Button
+                  onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                  disabled={isExporting}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md"
+                >
+                  {isExporting ? (
+                    <>
+                      <Download className="w-4 h-4 mr-2 animate-bounce" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Export
+                    </>
+                  )}
+                </Button>
+
+                {showDownloadMenu && (
                   <>
-                    <Download className="w-4 h-4 mr-2 animate-bounce" />
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowDownloadMenu(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
+                      {/* Add max-height and make it scrollable */}
+                      <div className="p-2 max-h-[400px] overflow-y-auto">
+                        <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">
+                          IMAGE
+                        </div>
+                        <button
+                          onClick={() => handleDownload("png")}
+                          className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
+                            <Image className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-slate-800">
+                              PNG
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              High quality image
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => handleDownload("jpg")}
+                          className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
+                            <Image className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-slate-800">
+                              JPG
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Compressed image
+                            </div>
+                          </div>
+                        </button>
+
+                        <div className="h-px bg-slate-200 my-2"></div>
+
+                        <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
+                          DOCUMENT
+                        </div>
+                        <button
+                          onClick={() => handleDownload("pdf")}
+                          className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <div className="p-1.5 bg-red-100 rounded-lg mr-3">
+                            <FileText className="w-4 h-4 text-red-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-slate-800">
+                              PDF
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Professional document
+                            </div>
+                          </div>
+                        </button>
+
+                        {/* HTML export removed */}
+
+                        <div className="h-px bg-slate-200 my-2"></div>
+
+                        <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
+                          DATA
+                        </div>
+                        <button
+                          onClick={() => handleDownload("excel")}
+                          className="flex items-center w-full px-4 py-2.5 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <div className="p-1.5 bg-green-100 rounded-lg mr-3">
+                            <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-slate-800">
+                              Excel
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Spreadsheet data
+                            </div>
+                          </div>
+                        </button>
+
+                        <div className="h-px bg-slate-200 my-2"></div>
+
+                        <button
+                          onClick={() => handleDownload("print")}
+                          className="flex items-center w-full px-4 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                          <div className="p-1.5 bg-gray-100 rounded-lg mr-3">
+                            <Printer className="w-4 h-4 text-gray-700" />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-medium text-slate-800">
+                              Print
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Send to printer
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
                   </>
                 )}
-              </Button>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
 
-              {showDownloadMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowDownloadMenu(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden">
-                    {/* Add max-height and make it scrollable */}
-                    <div className="p-2 max-h-[400px] overflow-y-auto">
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-2 pb-1">
-                        IMAGE
-                      </div>
-                      <button
-                        onClick={() => handleDownload("png")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                          <Image className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            PNG
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            High quality image
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => handleDownload("jpg")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
-                          <Image className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            JPG
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Compressed image
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
-                        DOCUMENT
-                      </div>
-                      <button
-                        onClick={() => handleDownload("pdf")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-red-100 rounded-lg mr-3">
-                          <FileText className="w-4 h-4 text-red-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            PDF
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Professional document
-                          </div>
-                        </div>
-                      </button>
-
-                      <button
-                        onClick={() => handleDownload("html")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-orange-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-orange-100 rounded-lg mr-3">
-                          <FileJson className="w-4 h-4 text-orange-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            HTML
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Web page format
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <div className="text-xs font-semibold text-slate-500 px-4 pt-1 pb-1">
-                        DATA
-                      </div>
-                      <button
-                        onClick={() => handleDownload("excel")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-green-100 rounded-lg mr-3">
-                          <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            Excel
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Spreadsheet data
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="h-px bg-slate-200 my-2"></div>
-
-                      <button
-                        onClick={() => handleDownload("print")}
-                        className="flex items-center w-full px-4 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
-                      >
-                        <div className="p-1.5 bg-gray-100 rounded-lg mr-3">
-                          <Printer className="w-4 h-4 text-gray-700" />
-                        </div>
-                        <div className="text-left">
-                          <div className="text-sm font-medium text-slate-800">
-                            Print
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            Send to printer
-                          </div>
-                        </div>
-                      </button>
-                    </div>
+        <CardContent ref={dashboardCardRef} className="p-6">
+          {showLoader ? (
+            <div className="min-h-[600px] flex items-center justify-center">
+              <SequentialLoader />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* KPIs section - only show if has KPIs */}
+              {hasKPIs && (
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {dashboardData.kpis.map((kpi: any, i: number) =>
+                      renderKPICard(kpi, i),
+                    )}
                   </div>
-                </>
+                </div>
               )}
+
+              {/* Charts section - only show if has charts */}
+              {hasCharts && (
+                <div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {dashboardData.charts.map((chart: any, i: number) =>
+                      renderChart(chart, i),
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Table section if available */}
+              {hasTable && (
+                <div>
+                  <div className="overflow-x-auto border rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          {Object.keys(dashboardData.table[0]).map((key) => (
+                            <th
+                              key={key}
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              {key.replace(/_/g, " ")}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {dashboardData.table.map((row: any, idx: number) => (
+                          <tr key={idx}>
+                            {Object.values(row).map(
+                              (value: any, colIdx: number) => (
+                                <td
+                                  key={colIdx}
+                                  className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                                >
+                                  {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
+                                </td>
+                              ),
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Chart Expand Modal */}
+      {expandedChart && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => {
+            setExpandedChart(null);
+            setExpandedChartTitle("");
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-[90vw] h-[85vh] max-w-[1400px] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold text-slate-800">{expandedChartTitle}</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-slate-100"
+                onClick={() => {
+                  setExpandedChart(null);
+                  setExpandedChartTitle("");
+                }}
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            {/* Modal Body */}
+            <div className="flex-1 p-6">
+              <ReactECharts
+                option={expandedChart}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "canvas" }}
+              />
             </div>
           </div>
         </div>
-      </CardHeader>
-
-      <CardContent ref={dashboardCardRef} className="p-6">
-        {showLoader ? (
-          <div className="min-h-[600px] flex items-center justify-center">
-            <SequentialLoader />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* KPIs section - only show if has KPIs */}
-            {hasKPIs && (
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {dashboardData.kpis.map((kpi: any, i: number) =>
-                    renderKPICard(kpi, i),
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Charts section - only show if has charts */}
-            {hasCharts && (
-              <div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {dashboardData.charts.map((chart: any, i: number) =>
-                    renderChart(chart, i),
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Table section if available */}
-            {hasTable && (
-              <div>
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {Object.keys(dashboardData.table[0]).map((key) => (
-                          <th
-                            key={key}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {key.replace(/_/g, " ")}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dashboardData.table.map((row: any, idx: number) => (
-                        <tr key={idx}>
-                          {Object.values(row).map(
-                            (value: any, colIdx: number) => (
-                              <td
-                                key={colIdx}
-                                className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                              >
-                                {typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}
-                              </td>
-                            ),
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </>
   );
 };

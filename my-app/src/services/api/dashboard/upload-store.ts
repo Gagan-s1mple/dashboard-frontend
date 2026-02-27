@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
-import { url } from "../api-url";
+// import { url } from "../api-url";
 
 interface UploadState {
   uploading: boolean;
@@ -40,11 +40,11 @@ export const useUploadStore = create<UploadState>((set, get) => ({
       const form = new FormData();
 
       files.forEach((files) => {
-        form.append("files", files); 
+        form.append("files", files);
       });
 
 
-      const response = await fetch(`${url.backendUrl}/api/upload-file`, {
+      const response = await fetch(`https://54-85-180-205.sslip.io/api/upload-file`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -60,11 +60,17 @@ export const useUploadStore = create<UploadState>((set, get) => ({
           throw new Error("Session expired. Please login again.");
         }
 
+        if (response.status === 413) {
+          throw new Error(
+            "File too large. Please upload files smaller than 200 MB.",
+          );
+        }
+
         const errorText = await response.text();
 
         throw new Error(
           errorText ||
-            `Upload failed: ${response.status} ${response.statusText}`,
+          `Upload failed: ${response.status} ${response.statusText}`,
         );
       }
 
@@ -72,14 +78,14 @@ export const useUploadStore = create<UploadState>((set, get) => ({
 
       set({
         filenames: files.map((f) => f.name),
-        uploadedEmail: email, 
+        uploadedEmail: email,
         uploadSuccess: true,
       });
 
       set({ uploading: false });
       return data;
     } catch (err: any) {
-    
+
       set({ uploading: false, error: err.message });
       throw err;
     }
