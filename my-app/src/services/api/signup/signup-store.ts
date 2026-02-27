@@ -8,7 +8,7 @@ interface SignupPayload {
   phno: string;
   occupation: string;
   organization: string;
-  country:string;
+  country: string;
 }
 
 interface SignupState {
@@ -35,21 +35,21 @@ export const useSignupStore = create<SignupState>((set) => ({
       });
 
       if (!response.ok) {
-  const errorData = await response.json();
+        const errorData = await response.json();
 
-  let message = "Signup failed";
+        let message = "Signup failed";
 
-  if (Array.isArray(errorData.detail)) {
-    message = errorData.detail[0]?.msg;
-  } else if (typeof errorData.detail === "string") {
-    message = errorData.detail;
-  }
+        if (Array.isArray(errorData.detail)) {
+          message = errorData.detail[0]?.msg;
+        } else if (typeof errorData.detail === "string") {
+          message = errorData.detail;
+        }
 
-  throw new Error(message);
-}
+        throw new Error(message);
+      }
 
       const data = await response.json();
-   
+
 
       set({ loading: false });
       return data;

@@ -44,7 +44,7 @@ export function SignupPage({
     name: "",
     email: "",
     phno: "",
-    country:"",
+    country: "",
     occupation: "",
     organization: "",
   });
@@ -53,35 +53,35 @@ export function SignupPage({
 
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-const handleInputChange = (e: any) => {
-  setFormData({ ...formData, [e.target.name]: e.target.value });
-};
+  const handleInputChange = (e: any) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
-  if (formData.name.trim().length < 2) {
-    toast.error("Name must be at least 2 characters");
-    return;
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(formData.email)) {
-    toast.error("Please enter a valid email address");
-    return;
-  }
-
-  const digitsOnly = formData.phno.replace(/\D/g, "");
-
-  if (digitsOnly.startsWith("91")) {
-    const numberWithoutCode = digitsOnly.slice(2);
-
-    if (numberWithoutCode.length !== 10) {
-      toast.error("Phone number should be 10 digits");
+    if (formData.name.trim().length < 2) {
+      toast.error("Name must be at least 2 characters");
       return;
     }
-  }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    const digitsOnly = formData.phno.replace(/\D/g, "");
+
+    if (digitsOnly.startsWith("91")) {
+      const numberWithoutCode = digitsOnly.slice(2);
+
+      if (numberWithoutCode.length !== 10) {
+        toast.error("Phone number should be 10 digits");
+        return;
+      }
+    }
     try {
       const payload = {
         ...formData,
@@ -205,8 +205,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                     country={"in"}
                     enableSearch={true}
                     value={formData.phno}
-                    onChange={(phone) =>
-                      setFormData((prev) => ({ ...prev, phno: phone }))
+                    onChange={(phone, countryData: any) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        phno: phone,
+                        country: countryData?.name || "",
+                      }))
                     }
                     inputStyle={{
                       width: "100%",
