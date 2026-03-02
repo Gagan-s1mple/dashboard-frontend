@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // Import components
 import { ChatSidebar } from "@/src/components/chat/ChatSidebar";
@@ -16,10 +17,18 @@ export function SalesDashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    // Auth guard: redirect to login if no auth token
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      toast.error("Please login first", { duration: 2000 });
+      router.push("/");
+      return;
+    }
+
     const email = localStorage.getItem("user_email") || "";
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setUserEmail(email);
-  }, []);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem("user_email");

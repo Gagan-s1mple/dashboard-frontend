@@ -73,7 +73,7 @@ export const useUpdateTitleStore = create<UpdateTitleState>((set) => ({
       const data = await response.json();
 
       const normalized: UpdateTitleResponse = {
-        success: data.success !== false, 
+        success: data.success !== false,
         message: data.message || "Chat title updated successfully",
         chat: data.chat ?? { chat_id: payload.chat_id, title: payload.title, updated_at: new Date().toISOString() },
       };

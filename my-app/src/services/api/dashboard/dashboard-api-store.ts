@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { url } from "../api-url";
+import { handleSessionExpired } from "../../utils/session-handler";
 import { create } from "zustand";
 import { useChatStore } from "../chat/chat-store"; // IMPORT the chat store
 
@@ -146,6 +147,10 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleSessionExpired();
+          throw new Error("Session expired");
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -237,6 +242,10 @@ export class DashboardAPI {
       const duration = (endTime - startTime).toFixed(2);
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleSessionExpired();
+          throw new Error("Session expired");
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -299,6 +308,11 @@ export class DashboardAPI {
 
       const endTime = performance.now();
       const duration = (endTime - startTime).toFixed(2);
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        throw new Error("Session expired");
+      }
 
       if (!response.ok) {
         let responseData: any = null;

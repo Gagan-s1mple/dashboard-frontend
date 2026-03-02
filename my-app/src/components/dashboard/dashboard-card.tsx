@@ -42,6 +42,9 @@ export const DashboardCard = ({
 }: DashboardCardProps) => {
   const [isExporting, setIsExporting] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+
+  // Detect Firefox browser
+  const isFirefox = typeof navigator !== "undefined" && /firefox/i.test(navigator.userAgent);
   const dashboardCardRef = useRef<HTMLDivElement>(null);
 
   // State for chart expand modal
@@ -553,8 +556,10 @@ export const DashboardCard = ({
                           IMAGE
                         </div>
                         <button
-                          onClick={() => handleDownload("png")}
-                          className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
+                          onClick={() => !isFirefox && handleDownload("png")}
+                          disabled={isFirefox}
+                          title={isFirefox ? "Not supported in Firefox" : "Download as PNG"}
+                          className={`flex items-center w-full px-4 py-2.5 rounded-lg transition-colors ${isFirefox ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-50 cursor-pointer"}`}
                         >
                           <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
                             <Image className="w-4 h-4 text-blue-600" />
@@ -564,14 +569,16 @@ export const DashboardCard = ({
                               PNG
                             </div>
                             <div className="text-xs text-slate-500">
-                              High quality image
+                              {isFirefox ? "Not supported in Firefox" : "High quality image"}
                             </div>
                           </div>
                         </button>
 
                         <button
-                          onClick={() => handleDownload("jpg")}
-                          className="flex items-center w-full px-4 py-2.5 hover:bg-blue-50 rounded-lg transition-colors"
+                          onClick={() => !isFirefox && handleDownload("jpg")}
+                          disabled={isFirefox}
+                          title={isFirefox ? "Not supported in Firefox" : "Download as JPG"}
+                          className={`flex items-center w-full px-4 py-2.5 rounded-lg transition-colors ${isFirefox ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-50 cursor-pointer"}`}
                         >
                           <div className="p-1.5 bg-blue-100 rounded-lg mr-3">
                             <Image className="w-4 h-4 text-blue-600" />
@@ -581,7 +588,7 @@ export const DashboardCard = ({
                               JPG
                             </div>
                             <div className="text-xs text-slate-500">
-                              Compressed image
+                              {isFirefox ? "Not supported in Firefox" : "Compressed image"}
                             </div>
                           </div>
                         </button>
@@ -592,8 +599,10 @@ export const DashboardCard = ({
                           DOCUMENT
                         </div>
                         <button
-                          onClick={() => handleDownload("pdf")}
-                          className="flex items-center w-full px-4 py-2.5 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={() => !isFirefox && handleDownload("pdf")}
+                          disabled={isFirefox}
+                          title={isFirefox ? "Not supported in Firefox" : "Download as PDF"}
+                          className={`flex items-center w-full px-4 py-2.5 rounded-lg transition-colors ${isFirefox ? "opacity-50 cursor-not-allowed" : "hover:bg-red-50 cursor-pointer"}`}
                         >
                           <div className="p-1.5 bg-red-100 rounded-lg mr-3">
                             <FileText className="w-4 h-4 text-red-600" />
@@ -603,7 +612,7 @@ export const DashboardCard = ({
                               PDF
                             </div>
                             <div className="text-xs text-slate-500">
-                              Professional document
+                              {isFirefox ? "Not supported in Firefox" : "Professional document"}
                             </div>
                           </div>
                         </button>
@@ -635,8 +644,10 @@ export const DashboardCard = ({
                         <div className="h-px bg-slate-200 my-2"></div>
 
                         <button
-                          onClick={() => handleDownload("print")}
-                          className="flex items-center w-full px-4 py-2.5 hover:bg-gray-50 rounded-lg transition-colors"
+                          onClick={() => !isFirefox && handleDownload("print")}
+                          disabled={isFirefox}
+                          title={isFirefox ? "Not supported in Firefox" : "Print dashboard"}
+                          className={`flex items-center w-full px-4 py-2.5 rounded-lg transition-colors ${isFirefox ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}`}
                         >
                           <div className="p-1.5 bg-gray-100 rounded-lg mr-3">
                             <Printer className="w-4 h-4 text-gray-700" />
@@ -646,7 +657,7 @@ export const DashboardCard = ({
                               Print
                             </div>
                             <div className="text-xs text-slate-500">
-                              Send to printer
+                              {isFirefox ? "Not supported in Firefox" : "Send to printer"}
                             </div>
                           </div>
                         </button>

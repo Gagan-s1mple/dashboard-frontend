@@ -23,7 +23,7 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
       set({ loading: true, error: null });
 
       const token = getAuthToken();
-      
+
       // Check if user is authenticated
       if (!token) {
         throw new Error("Authentication required. Please login first.");
@@ -33,7 +33,7 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
         filenames: [filename] // Wrap filename in an array
       };
 
-    
+
 
       const response = await fetch(`${url.backendUrl}/api/delete-file`, {
         method: "DELETE",
@@ -52,10 +52,10 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
           localStorage.removeItem("token_type");
           throw new Error("Session expired. Please login again.");
         }
-        
+
         const errorText = await response.text();
-     
-        
+
+
         // Try to parse the error response
         let errorMessage = errorText;
         try {
@@ -69,10 +69,10 @@ export const useDeleteFileStore = create<DeleteFileState>((set) => ({
 
           throw error;
         }
-        
+
         throw new Error(
           errorMessage ||
-            `Delete failed: ${response.status} ${response.statusText}`,
+          `Delete failed: ${response.status} ${response.statusText}`,
         );
       }
 
