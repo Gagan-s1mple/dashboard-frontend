@@ -314,7 +314,7 @@ export function SignupPage({
                                                      <DialogHeader>
                                                        <DialogTitle>Terms & Conditions</DialogTitle>
                                                      </DialogHeader>
-                                                     <div className="h-[600px] overflow-y-auto text-xs text-gray-700 pr-3">
+                                                     <div className="h-[400px] overflow-y-auto text-xs text-gray-700 pr-3">
                                                        <h1 className="text-base font-semibold">Terms of Service</h1>
                                                        <p>Equilibrate.AI Technologies Private Limited</p>
                                                        <p>Product Name: ADRO</p>
