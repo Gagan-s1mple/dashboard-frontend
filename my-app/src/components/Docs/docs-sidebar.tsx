@@ -34,10 +34,7 @@ export default function DocsSidebar({
 
     return (
         <aside className="docs-sidebar">
-            <div className="docs-sidebar-header">
-                <span className="docs-sidebar-logo">📘</span>
-                <span className="docs-sidebar-title">Adro Docs</span>
-            </div>
+
 
             <nav className="docs-sidebar-nav">
                 {sections.map((section) => {

@@ -48,7 +48,7 @@ const GridItem = ({ area, icon, title, description }: GridItemProps) => {
 
 const HomeSecTwo = () => {
     return (
-        <section className="mx-4 w-full py-8">
+        <section className="w-full px-4 py-8">
             {/* Text Generate Section */}
             <motion.div
                 initial={{ opacity: 0, y: 40 }}

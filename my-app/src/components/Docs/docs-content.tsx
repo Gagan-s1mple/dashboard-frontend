@@ -30,7 +30,7 @@ function renderBlock(block: DocContentBlock, index: number) {
 
         case "heading":
             return (
-                <h4 key={index} className="text-xl font-semibold mt-4 mb-2 tracking-tight text-foreground">
+                <h4 key={index} className="text-xl font-bold mt-4 mb-2 tracking-tight text-foreground">
                     {block.text}
                 </h4>
             );
@@ -38,12 +38,27 @@ function renderBlock(block: DocContentBlock, index: number) {
         case "list":
             return (
                 <ul key={index} className="docs-list space-y-3 my-4">
-                    {block.items?.map((item, i) => (
-                        <li key={i} className="docs-list-item flex items-start gap-3 text-muted-foreground">
-                            <span className="docs-list-bullet mt-2" />
-                            <span className="text-base">{item}</span>
-                        </li>
-                    ))}
+                    {block.items?.map((item, i) => {
+                        const dashIndex = item.indexOf(" — ") !== -1 ? item.indexOf(" — ") : item.indexOf(" - ");
+                        if (dashIndex !== -1) {
+                            const title = item.substring(0, dashIndex);
+                            const rest = item.substring(dashIndex);
+                            return (
+                                <li key={i} className="docs-list-item flex items-start gap-3 text-muted-foreground">
+                                    <span className="docs-list-bullet mt-2" />
+                                    <span className="text-base">
+                                        <span className="font-bold text-foreground">{title}</span>{rest}
+                                    </span>
+                                </li>
+                            );
+                        }
+                        return (
+                            <li key={i} className="docs-list-item flex items-start gap-3 text-muted-foreground">
+                                <span className="docs-list-bullet mt-2" />
+                                <span className="text-base">{item}</span>
+                            </li>
+                        );
+                    })}
                 </ul>
             );
 
@@ -51,16 +66,13 @@ function renderBlock(block: DocContentBlock, index: number) {
             return (
                 <div
                     key={index}
-                    className={`docs-callout rounded-lg border p-4 my-6 flex gap-4 ${block.variant === "tip"
+                    className={`docs-callout rounded-lg border p-4 my-6 ${block.variant === "tip"
                         ? "bg-emerald-50/50 border-emerald-100 text-emerald-900"
                         : block.variant === "warning"
                             ? "bg-amber-50/50 border-amber-100 text-amber-900"
                             : "bg-blue-50/50 border-blue-100 text-blue-900"
                         }`}
                 >
-                    <span className="text-xl">
-                        {block.variant === "tip" ? "✨" : block.variant === "warning" ? "⚠️" : "📘"}
-                    </span>
                     <p className="text-sm font-medium leading-relaxed">{block.text}</p>
                 </div>
             );
@@ -129,7 +141,7 @@ export default function DocsContent({
                             <Badge variant="outline" className="w-fit">{subSection.badge}</Badge>
                         )}
                         <div className="flex flex-col gap-2">
-                            <h1 className="text-3xl md:text-4xl lg:text-6xl tracking-tighter font-regular max-w-2xl">
+                            <h1 className="text-3xl md:text-4xl lg:text-6xl tracking-tighter font-bold max-w-2xl">
                                 {subSection.title}
                             </h1>
                             <div className="docs-breadcrumb flex items-center gap-2 text-sm text-muted-foreground font-medium">

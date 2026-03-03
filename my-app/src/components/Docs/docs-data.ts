@@ -91,17 +91,17 @@ export const docsData: DocSection[] = [
                     {
                         title: "Visit Login Page",
                         description: "Head to the login portal to access your Adro account.",
-                        image: "/login-step-1.png"
+                        image: "/login-pic-1.png"
                     },
                     {
                         title: "Enter Credentials",
                         description: "Provide your registered email and password to sign in.",
-                        image: "/login-step-2.png"
+                        image: "/login-pic-2.png"
                     },
                     {
                         title: "Explore Dashboard",
                         description: "Start analyzing your data with your complimentary credits.",
-                        image: "/login-step-3.png"
+                        image: "/upload.png"
                     }
                 ]
             },
@@ -126,7 +126,7 @@ export const docsData: DocSection[] = [
                     {
                         title: "Open Dashboard",
                         description: "Click the Upload button inside your main dashboard panel.",
-                        image: "/upload-pic-1.png"
+                        image: "/upload.png"
                     },
                     {
                         title: "Select File",
@@ -187,6 +187,8 @@ export const docsData: DocSection[] = [
                             "\"Show revenue trends over time.\"",
                             "\"Which region performed best?\"",
                             "\"Compare monthly sales performance.\"",
+                            "\"Plot a sales Dashboard\"",
+                            "\"Show me Product Performance\"",
                         ],
                     },
                 ],
@@ -226,7 +228,7 @@ export const docsData: DocSection[] = [
                     {
                         title: "Interact & Explore",
                         description: "Drill down into specific metrics and trends with dynamic charts.",
-                        image: "/dashboard-pic-2.png"
+                        image: "/pic-2.jpg"
                     }
                 ]
             },
@@ -240,7 +242,7 @@ export const docsData: DocSection[] = [
                 id: "export-formats",
                 title: "Export Formats",
                 badge: "Reporting",
-                mainImage: "/export.png",
+                mainImage: "/export-pic.png",
                 content: [
                     {
                         type: "paragraph",
@@ -252,6 +254,8 @@ export const docsData: DocSection[] = [
                             "PNG — High-resolution image export",
                             "Excel — Spreadsheet with underlying data",
                             "PDF — Print-ready document format",
+                            "JPG — Image format for easy sharing",
+
                         ],
                     },
                 ],
