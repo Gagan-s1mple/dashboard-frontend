@@ -8,7 +8,7 @@ export default function PricingPage() {
     return (
         <main>
             <NavigationBar />
-            <div className="max-w-4xl mx-auto px-6 py-14">
+            <div className="max-w-4xl mx-auto px-6 py-16">
                 <Pricing />
             </div>
             <Footer />

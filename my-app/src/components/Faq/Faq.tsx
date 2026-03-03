@@ -48,13 +48,9 @@ const faqItems: FAQItem[] = [
         question: "Is my data secure?",
         answer: "Yes. Adro processes data securely in the cloud with enterprise-grade protection standards to ensure privacy and reliability."
     },
+
     {
         id: "faq-7",
-        question: "Does Adro offer API access?",
-        answer: "API access is available in higher-tier plans, allowing businesses to integrate Adro’s analytics engine directly into their applications and workflows."
-    },
-    {
-        id: "faq-8",
         question: "Can Adro support enterprise-level analytics?",
         answer: "Yes. Adro offers scalable enterprise solutions including higher data limits, advanced AI insights, custom integrations, and dedicated support."
     }
@@ -78,11 +74,7 @@ function FAQ() {
                                     Adro helps you turn raw data into powerful AI-driven dashboards and actionable business insights.
                                 </p>
                             </div>
-                            <div>
-                                <Button className="gap-4 mt-2" variant="outline">
-                                    Questions? Contact us <PhoneCall className="w-4 h-4" />
-                                </Button>
-                            </div>
+
                         </div>
                     </div>
                     <div className="w-full">

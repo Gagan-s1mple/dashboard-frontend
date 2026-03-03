@@ -166,6 +166,7 @@ export default function LandingSecFive() {
                     </div>
 
                     <motion.div
+                        id="live-demo"
                         initial={{ opacity: 0, x: 20 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}

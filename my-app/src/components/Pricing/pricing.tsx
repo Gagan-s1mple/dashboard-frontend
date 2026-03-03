@@ -50,7 +50,7 @@ export const Pricing = ({
     buttonText = "Get Started",
 }: PricingProps) => {
     return (
-        <section className="py-14 md:py-14">
+        <section className="">
             <div className="container">
                 <div className="mx-auto max-w-4xl text-center space-y-8">
 
