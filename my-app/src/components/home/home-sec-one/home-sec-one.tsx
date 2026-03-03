@@ -14,15 +14,15 @@ const frameworkCards = [
     {
         icon: (
             <Image
-                src="/csv.png"
-                alt="CSV & Excel Upload"
+                src="/export.png"
+                alt="Export & Share"
                 width={60}
                 height={60}
                 className="h-16 w-16 transition-opacity group-hover:opacity-100"
             />
         ),
-        title: "Upload Data",
-        description: "Import CSV or Excel files instantly",
+        title: "Export & Share",
+        description: "Download as PNG, JPG, Excel or PDF",
         className:
             "[grid-area:stack] hover:-translate-y-10 before:absolute before:w-[100%] before:outline-1 before:rounded-xl before:outline-border before:h-[100%] before:content-[''] before:bg-blend-overlay before:bg-background/50 grayscale-[100%] hover:before:opacity-0 before:transition-opacity before:duration-700 hover:grayscale-0 before:left-0 before:top-0",
     },
@@ -44,15 +44,15 @@ const frameworkCards = [
     {
         icon: (
             <Image
-                src="/export.png"
-                alt="Export & Share"
+                src="/csv.png"
+                alt="CSV & Excel Upload"
                 width={60}
                 height={60}
                 className="h-16 w-16 transition-opacity group-hover:opacity-100"
             />
         ),
-        title: "Export & Share",
-        description: "Download as PNG, JPG, Excel or PDF",
+        title: "Upload Data",
+        description: "Import CSV or Excel files instantly",
         className:
             "[grid-area:stack] translate-x-24 translate-y-20 hover:translate-y-10",
     },
@@ -97,7 +97,7 @@ const HomeSecOne = memo(() => {
             {/* Hero Section */}
             <div className="w-full pb-16 pt-24 flex items-center xl:px-0 relative">
                 <div className="w-full flex justify-center px-4 sm:px-6">
-                    <div className="w-full max-w-[100vw]">
+                    <div className="w-full">
                         <motion.div
                             initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
@@ -152,7 +152,7 @@ const HomeSecOne = memo(() => {
             </div>
 
             {/* Features Section */}
-            <section className="py-16 overflow-hidden">
+            <section className="py-16 overflow-x-hidden">
                 <motion.div
                     initial={{ opacity: 0.0, x: -40 }}
                     whileInView={{ opacity: 1, x: 0 }}

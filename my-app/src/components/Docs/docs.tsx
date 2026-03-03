@@ -5,6 +5,8 @@ import DocsSidebar from "./docs-sidebar";
 import DocsContent from "./docs-content";
 import { docsData } from "./docs-data";
 import "./docs.css";
+import { NavigationBar } from "../dashboard/navigation-bar";
+import Footer from "../footer/footer";
 
 export default function Docs() {
     const [activeSubSection, setActiveSubSection] = useState(
@@ -22,13 +24,19 @@ export default function Docs() {
     }, []);
 
     return (
-        <div className="docs-page">
-            <DocsSidebar
-                sections={docsData}
-                activeSubSection={activeSubSection}
-                onSubSectionClick={setActiveSubSection}
-            />
-            <DocsContent sections={docsData} activeSubSection={activeSubSection} />
+        <div className="flex flex-col min-h-screen bg-background">
+            <NavigationBar />
+
+            <div className="flex flex-1 relative docs-page">
+                <DocsSidebar
+                    sections={docsData}
+                    activeSubSection={activeSubSection}
+                    onSubSectionClick={setActiveSubSection}
+                />
+                <DocsContent sections={docsData} activeSubSection={activeSubSection} />
+            </div>
+
+            <Footer />
         </div>
     );
 }

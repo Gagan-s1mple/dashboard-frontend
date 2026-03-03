@@ -8,7 +8,7 @@ import HomeSecThree from "./home-sec-three/home-sec-three";
 
 const HomePage = () => {
     return (
-        <main>
+        <main className="overflow-x-hidden">
             <NavigationBar />
             <HomeSecOne />
             <HomeSecTwo />
